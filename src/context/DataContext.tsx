@@ -71,18 +71,34 @@ export function DataProvider({ children }: DataProviderProps) {
   const { user, isLoading: authLoading } = useOAuth2Auth();
 
   // Fetch messages from the API
-  const fetchMessages = async (params = {}) => {
+  const fetchMessages = async (params: { limit?: number; offset?: number } = {}) => {
     try {
       setIsLoadingMessages(true);
       setError(null);
       
-      // Use new getProcessedMessages method instead of deprecated getMessages
-      const response = await ApiService.getProcessedMessages(params);
+      // Use new getProcessedMessages method with limit/offset pagination
+      const { limit = 20, offset = 0 } = params;
+      const response = await ApiService.getProcessedMessages(limit, offset);
       
       if (response.data?.messages && Array.isArray(response.data.messages)) {
-        setMessages(response.data.messages);
-      } else if (response.data && Array.isArray(response.data)) {
-        setMessages(response.data);
+        // Map EmailMessage to our Message format
+        const mappedMessages: Message[] = response.data.messages.map((msg: any) => ({
+          id: msg.id,
+          sender: msg.from,
+          subject: msg.subject,
+          preview: msg.snippet || msg.body?.substring(0, 100) + '...' || '',
+          timestamp: msg.timestamp,
+          source: 'gmail' as const,
+          priority: (msg.priority === 'high' ? 'very_urgent' : 
+                    msg.priority === 'medium' ? 'important' : 
+                    'not_important') as 'very_urgent' | 'important' | 'not_important',
+          context: (msg.category?.includes('business') ? 'business' : 'personal') as 'business' | 'personal',
+          confidence: msg.confidence || 0,
+          isRead: msg.isRead || false,
+          fullContent: msg.body
+        }));
+        setMessages(mappedMessages);
+        console.log(`✅ Loaded ${mappedMessages.length} processed messages`);
       } else {
         console.warn('Invalid messages response format:', response);
         setMessages([]);

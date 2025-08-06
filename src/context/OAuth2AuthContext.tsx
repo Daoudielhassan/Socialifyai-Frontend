@@ -81,8 +81,8 @@ export function OAuth2AuthProvider({ children }: OAuth2AuthProviderProps) {
       if (token && userId && email) {
         console.log('🔐 Found OAuth token in URL parameters');
         
-        // Store the token securely
-        localStorage.setItem('access_token', token);
+        // Store the token securely and initialize token management
+        ApiService.setToken(token);
         if (refreshToken) {
           localStorage.setItem('refresh_token', refreshToken);
         }
@@ -152,15 +152,15 @@ export function OAuth2AuthProvider({ children }: OAuth2AuthProviderProps) {
         try {
           const response = await ApiService.getProfile();
           if (response.data) {
-            // Map API User to OAuth2 User format
-            const apiUser = response.data;
+            // Map ProfileUser to OAuth2 User format
+            const profileUser = response.data;
             const mappedUser: User = {
-              id: parseInt(apiUser.id) || 0,
-              email: apiUser.email,
-              full_name: `${apiUser.firstName || ''} ${apiUser.lastName || ''}`.trim() || apiUser.email,
-              auth_method: 'oauth',
-              created_at: apiUser.createdAt || new Date().toISOString(),
-              last_login: new Date().toISOString(),
+              id: profileUser.id,
+              email: profileUser.email,
+              full_name: profileUser.full_name,
+              auth_method: profileUser.auth_method,
+              created_at: profileUser.created_at,
+              last_login: profileUser.last_login,
               settings: {
                 privacy_level: 'high',
                 ai_suggestions: true,
@@ -169,7 +169,7 @@ export function OAuth2AuthProvider({ children }: OAuth2AuthProviderProps) {
               },
               connected_services: {
                 gmail: {
-                  connected: true,
+                  connected: profileUser.gmail_connected,
                   permissions: ['read'],
                   last_sync: new Date().toISOString()
                 }
@@ -246,23 +246,33 @@ export function OAuth2AuthProvider({ children }: OAuth2AuthProviderProps) {
         sessionStorage.setItem('oauth_redirect_url', window.location.pathname);
       }
       
-      // Make POST request to get authorization URL
-      const response = await ApiService.request<{ authorization_url: string }>('/auth/google', {
-        method: 'POST',
-        body: JSON.stringify({
-          redirect_uri: `${window.location.origin}/oauth2-callback`
-        })
+      // Make GET request to get authorization URL using the init endpoint
+      const response = await ApiService.request<{ authorization_url?: string; auth_url?: string; url?: string }>('/auth/google/init', {
+        method: 'GET'
       });
       
       console.log('🔐 OAuth initiation response:', response);
+      console.log('🔐 Response keys:', Object.keys(response));
+      console.log('🔐 Response type:', typeof response);
+      console.log('🔐 Full response:', JSON.stringify(response, null, 2));
       
-      if (response.data?.authorization_url) {
-        const authUrl = response.data.authorization_url;
-        console.log('🔐 Redirecting to authorization URL:', authUrl);
+      // The API service returns the backend JSON directly (not wrapped in ApiResponse)
+      // Backend returns: {"authorization_url": "https://..."}
+      // So we access it directly on the response object
+      const authUrl = (response as any).authorization_url || 
+                     (response as any).auth_url || 
+                     (response as any).url;
+      
+      if (authUrl) {
+        console.log('🔐 Found authorization URL:', authUrl);
+        console.log('🔐 Redirecting to authorization URL...');
         
         // Redirect to Google OAuth
         window.location.href = authUrl;
       } else {
+        console.error('🔐 No authorization URL found in response');
+        console.error('🔐 Response structure:', response);
+        console.error('🔐 Available properties:', Object.keys(response));
         throw new Error('No authorization URL received from server');
       }
     } catch (error: any) {
@@ -349,15 +359,15 @@ export function OAuth2AuthProvider({ children }: OAuth2AuthProviderProps) {
   const refreshUserProfile = async () => {
     try {
       setError(null);
-      const apiUser = await ApiService.getUserProfile();
-      // Map API User to OAuth2 User format
+      const profileUser = await ApiService.getUserProfile();
+      // Map ProfileUser to OAuth2 User format
       const mappedUser: User = {
-        id: parseInt(apiUser.id) || 0,
-        email: apiUser.email,
-        full_name: `${apiUser.firstName || ''} ${apiUser.lastName || ''}`.trim() || apiUser.email,
-        auth_method: 'oauth',
-        created_at: apiUser.createdAt || new Date().toISOString(),
-        last_login: new Date().toISOString(),
+        id: profileUser.id,
+        email: profileUser.email,
+        full_name: profileUser.full_name,
+        auth_method: profileUser.auth_method,
+        created_at: profileUser.created_at,
+        last_login: profileUser.last_login,
         settings: {
           privacy_level: 'high',
           ai_suggestions: true,
@@ -366,7 +376,7 @@ export function OAuth2AuthProvider({ children }: OAuth2AuthProviderProps) {
         },
         connected_services: {
           gmail: {
-            connected: true,
+            connected: profileUser.gmail_connected,
             permissions: ['read'],
             last_sync: new Date().toISOString()
           }

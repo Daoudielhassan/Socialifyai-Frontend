@@ -27,6 +27,17 @@ interface User {
   updatedAt: string;
 }
 
+interface ProfileUser {
+  id: number;
+  email: string;
+  full_name: string;
+  auth_method: string;
+  created_at: string;
+  last_login: string;
+  is_active: boolean;
+  gmail_connected: boolean;
+}
+
 interface EmailMessage {
   id: string;
   from: string;
@@ -63,6 +74,17 @@ interface GmailResponse {
   resultSizeEstimate: number;
 }
 
+interface ProcessedMessagesResponse {
+  messages: EmailMessage[];
+  pagination: {
+    limit: number;
+    offset: number;
+    total: number;
+    has_next: boolean;
+  };
+  api_version: string;
+}
+
 interface AnalyticsData {
   totalEmails: number;
   priorityBreakdown: {
@@ -83,15 +105,131 @@ interface AnalyticsData {
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
+class TokenManager {
+  private refreshInterval: NodeJS.Timeout | null = null;
+  private isRefreshing = false;
+
+  constructor(private apiService: ApiService) {}
+
+  async checkTokenExpiry(): Promise<boolean> {
+    try {
+      const token = this.apiService.getAuthToken();
+      if (!token) return false;
+
+      const response = await this.apiService.getTokenInfo();
+      return response.success !== false;
+    } catch (error) {
+      console.error('Token check failed:', error);
+      return false;
+    }
+  }
+
+  async refreshToken(): Promise<string | null> {
+    if (this.isRefreshing) return null;
+
+    try {
+      this.isRefreshing = true;
+      console.log('🔄 Refreshing token...');
+      
+      const response = await this.apiService.refreshCurrentToken();
+      
+      if (response.data?.access_token) {
+        const newToken = response.data.access_token;
+        localStorage.setItem('access_token', newToken);
+        console.log('✅ Token refreshed successfully');
+        return newToken;
+      } else {
+        throw new Error('No access token in response');
+      }
+    } catch (error) {
+      console.error('❌ Token refresh failed:', error);
+      // Clear invalid tokens
+      this.apiService.clearAuthData();
+      // Redirect to login
+      if (typeof window !== 'undefined') {
+        window.location.href = '/oauth2-login';
+      }
+      return null;
+    } finally {
+      this.isRefreshing = false;
+    }
+  }
+
+  startAutoRefresh(): void {
+    // Clear existing interval
+    if (this.refreshInterval) {
+      clearInterval(this.refreshInterval);
+    }
+
+    // Check and refresh token every 6 days (6 days * 24 hours * 60 minutes * 60 seconds * 1000 ms)
+    const sixDaysInMs = 6 * 24 * 60 * 60 * 1000;
+    
+    this.refreshInterval = setInterval(async () => {
+      const isValid = await this.checkTokenExpiry();
+      if (isValid) {
+        await this.refreshToken();
+      }
+    }, sixDaysInMs);
+
+    console.log('🔄 Auto-refresh started: token will be refreshed every 6 days');
+  }
+
+  stopAutoRefresh(): void {
+    if (this.refreshInterval) {
+      clearInterval(this.refreshInterval);
+      this.refreshInterval = null;
+      console.log('🛑 Auto-refresh stopped');
+    }
+  }
+
+  async validateAndRefreshIfNeeded(): Promise<boolean> {
+    const isValid = await this.checkTokenExpiry();
+    if (!isValid) {
+      const newToken = await this.refreshToken();
+      return !!newToken;
+    }
+    return true;
+  }
+}
+
 class ApiService {
+  private tokenManager: TokenManager;
+
+  constructor() {
+    this.tokenManager = new TokenManager(this);
+  }
+
   getAuthToken(): string | null {
     return localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
+  }
+
+  // Initialize token management (call this after successful login)
+  initializeTokenManagement(): void {
+    this.tokenManager.startAutoRefresh();
+  }
+
+  // Stop token management (call this on logout)
+  stopTokenManagement(): void {
+    this.tokenManager.stopAutoRefresh();
+  }
+
+  // Validate token and refresh if needed before making requests
+  async ensureValidToken(): Promise<boolean> {
+    return await this.tokenManager.validateAndRefreshIfNeeded();
   }
 
   async request<T>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
+    // Ensure token is valid before making the request
+    if (this.getAuthToken()) {
+      const isValid = await this.ensureValidToken();
+      if (!isValid) {
+        throw new Error('Authentication failed - please login again');
+      }
+    }
+
     const token = this.getAuthToken();
     
     const config: RequestInit = {
@@ -108,6 +246,30 @@ class ApiService {
       const data = await response.json();
 
       if (!response.ok) {
+        // If we get a 401, try to refresh the token once
+        if (response.status === 401 && token) {
+          console.log('🔄 Got 401, attempting token refresh...');
+          const newToken = await this.tokenManager.refreshToken();
+          if (newToken) {
+            // Retry the request with the new token
+            const retryConfig = {
+              ...config,
+              headers: {
+                ...config.headers,
+                Authorization: `Bearer ${newToken}`,
+              },
+            };
+            const retryResponse = await fetch(`${API_BASE_URL}${endpoint}`, retryConfig);
+            const retryData = await retryResponse.json();
+            
+            if (!retryResponse.ok) {
+              throw new Error(retryData.message || retryData.error || `HTTP ${retryResponse.status}`);
+            }
+            
+            return retryData;
+          }
+        }
+        
         throw new Error(data.message || data.error || `HTTP ${response.status}`);
       }
 
@@ -119,8 +281,8 @@ class ApiService {
   }
 
   // OAuth2 Authentication
-  async getProfile(): Promise<ApiResponse<User>> {
-    return this.request<User>('/auth/profile');
+  async getProfile(): Promise<ApiResponse<ProfileUser>> {
+    return this.request<ProfileUser>('/auth/profile');
   }
 
   async refreshToken(): Promise<ApiResponse<{ access_token: string; refresh_token: string }>> {
@@ -131,6 +293,20 @@ class ApiService {
     });
   }
 
+  // New token refresh endpoint
+  async refreshCurrentToken(): Promise<ApiResponse<{ access_token: string }>> {
+    return this.request<{ access_token: string }>('/auth/refresh-token', {
+      method: 'POST',
+    });
+  }
+
+  // Get token information
+  async getTokenInfo(): Promise<ApiResponse<any>> {
+    return this.request('/auth/token-info', {
+      method: 'GET',
+    });
+  }
+
   // Dashboard & Analytics
   async getDashboardData(): Promise<ApiResponse<any>> {
     return this.request<any>('/dashboard');
@@ -138,6 +314,15 @@ class ApiService {
 
   async getAnalytics(): Promise<ApiResponse<AnalyticsData>> {
     return this.request<AnalyticsData>('/analytics');
+  }
+
+  // New Processed Messages endpoint
+  async getProcessedMessages(limit = 20, offset = 0): Promise<ApiResponse<ProcessedMessagesResponse>> {
+    const params = new URLSearchParams({
+      limit: limit.toString(),
+      offset: offset.toString()
+    });
+    return this.request<ProcessedMessagesResponse>(`/api/v1/messages/processed?${params.toString()}`);
   }
 
   // Gmail Integration
@@ -218,9 +403,10 @@ class ApiService {
 
   setToken(token: string): void {
     localStorage.setItem('access_token', token);
+    this.initializeTokenManagement();
   }
 
-  async getUserProfile(): Promise<User> {
+  async getUserProfile(): Promise<ProfileUser> {
     const response = await this.getProfile();
     if (response.data) {
       return response.data;
@@ -235,10 +421,13 @@ class ApiService {
       });
     } catch (error) {
       console.warn('Server logout failed:', error);
+    } finally {
+      this.stopTokenManagement();
     }
   }
 
   clearAuthData(): void {
+    this.stopTokenManagement();
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     sessionStorage.removeItem('access_token');
@@ -247,11 +436,6 @@ class ApiService {
   }
 
   // Additional methods used by DataContext
-  async getProcessedMessages(params: any): Promise<ApiResponse<any>> {
-    const queryParams = new URLSearchParams(params);
-    return this.request(`/messages/processed?${queryParams}`);
-  }
-
   async fetchGmailMessages(options: any): Promise<ApiResponse<any>> {
     const params = new URLSearchParams(options);
     return this.request(`/gmail/messages?${params}`);
@@ -331,9 +515,11 @@ export default new ApiService();
 export type {
   ApiResponse,
   User,
+  ProfileUser,
   EmailMessage,
   GmailMessage,
   GmailResponse,
+  ProcessedMessagesResponse,
   AnalyticsData,
   LoginRequest,
   RegisterRequest,

@@ -14,7 +14,7 @@ export default function OAuth2Callback() {
 
     if (errorParam) {
       console.error('OAuth2 error:', errorParam);
-      navigate('/login?error=' + encodeURIComponent(errorParam));
+      navigate('/oauth2-login?error=' + encodeURIComponent(errorParam));
       return;
     }
 
@@ -25,10 +25,10 @@ export default function OAuth2Callback() {
         })
         .catch((error) => {
           console.error('OAuth2 callback error:', error);
-          navigate('/login?error=' + encodeURIComponent('callback_failed'));
+          navigate('/oauth2-login?error=' + encodeURIComponent('callback_failed'));
         });
     } else {
-      navigate('/login?error=' + encodeURIComponent('missing_parameters'));
+      navigate('/oauth2-login?error=' + encodeURIComponent('missing_parameters'));
     }
   }, [searchParams, handleAuthCallback, navigate]);
 
@@ -44,7 +44,7 @@ export default function OAuth2Callback() {
           <h2 className="text-lg font-medium text-gray-900 mb-2">Authentication Failed</h2>
           <p className="text-gray-600 mb-4">{error}</p>
           <button
-            onClick={() => navigate('/login')}
+            onClick={() => navigate('/oauth2-login')}
             className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
           >
             Back to Login

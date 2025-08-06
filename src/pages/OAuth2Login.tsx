@@ -163,12 +163,6 @@ export default function OAuth2Login() {
               Learn about our privacy approach
             </Link>
           </p>
-          <p className="text-xs text-gray-500">
-            Or{' '}
-            <Link to="/login" className="font-medium text-gray-600 hover:text-gray-500">
-              use traditional login
-            </Link>
-          </p>
         </div>
       </div>
     </div>
