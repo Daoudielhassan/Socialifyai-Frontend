@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import ApiService from '../services/api';
-import { Shield, RefreshCw, Clock, CheckCircle, XCircle } from '../utils/icons';
+import { Shield, RefreshCw, Clock, Check, X } from '../utils/icons';
 
 interface TokenInfo {
   valid: boolean;
@@ -89,9 +89,9 @@ export default function TokenStatus() {
       <div className="space-y-3">
         <div className="flex items-center">
           {tokenInfo.valid ? (
-            <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
+            <Check className="h-4 w-4 text-green-500 mr-2" />
           ) : (
-            <XCircle className="h-4 w-4 text-red-500 mr-2" />
+            <X className="h-4 w-4 text-red-500 mr-2" />
           )}
           <span className="text-sm text-gray-600">
             Status: {tokenInfo.valid ? 'Valid' : 'Invalid/Expired'}

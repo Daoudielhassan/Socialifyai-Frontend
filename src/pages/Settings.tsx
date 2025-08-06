@@ -222,6 +222,9 @@ export default function Settings() {
 
                 {activeTab === 'security' && (
                   <div className="space-y-6">
+                    {/* Token Status */}
+                    <TokenStatus />
+                    
                     {/* Change Password */}
                     <div className="bg-white shadow rounded-lg">
                       <div className="px-4 py-5 sm:p-6">
