@@ -3,7 +3,6 @@ import { User, Shield, Link as LinkIcon, Mail, MessageCircle, Trash2 } from 'luc
 import Sidebar from '../components/Layout/Sidebar';
 import TopBar from '../components/Layout/TopBar';
 import MobileSidebar from '../components/Layout/MobileSidebar';
-import TokenStatus from '../components/TokenStatus';
 import { useOAuth2Auth } from '../context/OAuth2AuthContext';
 
 export default function Settings() {
@@ -222,8 +221,6 @@ export default function Settings() {
 
                 {activeTab === 'security' && (
                   <div className="space-y-6">
-                    {/* Token Status */}
-                    <TokenStatus />
                     
                     {/* Change Password */}
                     <div className="bg-white shadow rounded-lg">
