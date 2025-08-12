@@ -26,6 +26,10 @@ const priorityOptions: { value: Priority; label: string }[] = [
 const contextOptions: { value: Context; label: string }[] = [
   { value: 'business', label: 'Business' },
   { value: 'personal', label: 'Personal' },
+  { value: 'education', label: 'Education' },
+  { value: 'social', label: 'Social' },
+  { value: 'promotions', label: 'Promotions' },
+  { value: 'general', label: 'General' },
 ];
 
 export default function FeedbackModal({ isOpen, onClose, message, onSubmit }: FeedbackModalProps) {

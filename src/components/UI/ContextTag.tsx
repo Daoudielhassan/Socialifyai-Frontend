@@ -1,7 +1,6 @@
-import React from 'react';
-import { Briefcase, User } from 'lucide-react';
+import { Briefcase, User, GraduationCap, Users, Megaphone, Globe } from 'lucide-react';
 
-export type Context = 'business' | 'personal';
+export type Context = 'business' | 'personal' | 'education' | 'social' | 'promotions' | 'general';
 
 interface ContextTagProps {
   context: Context;
@@ -19,10 +18,30 @@ const contextConfig = {
     color: 'bg-green-100 text-green-800 border-green-200',
     icon: User,
   },
+  education: {
+    label: 'Education',
+    color: 'bg-purple-100 text-purple-800 border-purple-200',
+    icon: GraduationCap,
+  },
+  social: {
+    label: 'Social',
+    color: 'bg-pink-100 text-pink-800 border-pink-200',
+    icon: Users,
+  },
+  promotions: {
+    label: 'Promotions',
+    color: 'bg-orange-100 text-orange-800 border-orange-200',
+    icon: Megaphone,
+  },
+  general: {
+    label: 'General',
+    color: 'bg-gray-100 text-gray-800 border-gray-200',
+    icon: Globe,
+  },
 };
 
 export default function ContextTag({ context, size = 'md' }: ContextTagProps) {
-  const config = contextConfig[context] || contextConfig['business']; // Fallback to 'business'
+  const config = contextConfig[context] || contextConfig['general']; // Fallback to 'general'
   const Icon = config.icon;
 
   const sizeClasses = {

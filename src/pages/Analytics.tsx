@@ -33,8 +33,12 @@ export default function Analytics() {
 
   // Use real data or fallback to mock data
   const contextData = analytics?.contextData || [
-    { name: 'Business', value: 65, color: '#3B82F6' },
-    { name: 'Personal', value: 35, color: '#10B981' },
+    { name: 'Business', value: 35, color: '#3B82F6' },
+    { name: 'Personal', value: 25, color: '#10B981' },
+    { name: 'Education', value: 15, color: '#8B5CF6' },
+    { name: 'Social', value: 12, color: '#EC4899' },
+    { name: 'Promotions', value: 10, color: '#F59E0B' },
+    { name: 'General', value: 3, color: '#6B7280' },
   ];
 
   const priorityData = analytics?.priorityData || [

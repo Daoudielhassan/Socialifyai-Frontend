@@ -85,6 +85,36 @@ interface ProcessedMessagesResponse {
   api_version: string;
 }
 
+interface V1MessageResponse {
+  messages: Array<{
+    id: number;
+    source: string;
+    sender_domain: string;
+    subject_preview: string;
+    received_at: string;
+    predicted_priority: string;
+    predicted_context: string;
+    prediction_confidence: number;
+    processed_at: string | null;
+    privacy_protected: boolean;
+  }>;
+  pagination: {
+    limit: number;
+    offset: number;
+    total: number;
+    has_more: boolean;
+  };
+  filters: {
+    source: string | null;
+    priority: string | null;
+    context: string | null;
+    search: string | null;
+    days: number | null;
+  };
+  privacy_protected: boolean;
+  api_version: string;
+}
+
 interface AnalyticsData {
   totalEmails: number;
   priorityBreakdown: {
@@ -105,137 +135,58 @@ interface AnalyticsData {
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
-class TokenManager {
-  private refreshInterval: NodeJS.Timeout | null = null;
-  private isRefreshing = false;
-
-  constructor(private apiService: ApiService) {}
-
-  async checkTokenExpiry(): Promise<boolean> {
-    try {
-      const token = this.apiService.getAuthToken();
-      if (!token) return false;
-
-      const response = await this.apiService.getTokenInfo();
-      return response.success !== false;
-    } catch (error) {
-      console.error('Token check failed:', error);
-      return false;
-    }
-  }
-
-  async refreshToken(): Promise<string | null> {
-    if (this.isRefreshing) return null;
-
-    try {
-      this.isRefreshing = true;
-      console.log('🔄 Refreshing token...');
-      
-      const response = await this.apiService.refreshCurrentToken();
-      
-      if (response.data?.access_token) {
-        const newToken = response.data.access_token;
-        localStorage.setItem('access_token', newToken);
-        console.log('✅ Token refreshed successfully');
-        return newToken;
-      } else {
-        throw new Error('No access token in response');
-      }
-    } catch (error) {
-      console.error('❌ Token refresh failed:', error);
-      // Clear invalid tokens
-      this.apiService.clearAuthData();
-      // Redirect to login
-      if (typeof window !== 'undefined') {
-        window.location.href = '/oauth2-login';
-      }
-      return null;
-    } finally {
-      this.isRefreshing = false;
-    }
-  }
-
-  startAutoRefresh(): void {
-    // Clear existing interval
-    if (this.refreshInterval) {
-      clearInterval(this.refreshInterval);
-    }
-
-    // Check and refresh token every 6 days (6 days * 24 hours * 60 minutes * 60 seconds * 1000 ms)
-    const sixDaysInMs = 6 * 24 * 60 * 60 * 1000;
-    
-    this.refreshInterval = setInterval(async () => {
-      const isValid = await this.checkTokenExpiry();
-      if (isValid) {
-        await this.refreshToken();
-      }
-    }, sixDaysInMs);
-
-    console.log('🔄 Auto-refresh started: token will be refreshed every 6 days');
-  }
-
-  stopAutoRefresh(): void {
-    if (this.refreshInterval) {
-      clearInterval(this.refreshInterval);
-      this.refreshInterval = null;
-      console.log('🛑 Auto-refresh stopped');
-    }
-  }
-
-  async validateAndRefreshIfNeeded(): Promise<boolean> {
-    const isValid = await this.checkTokenExpiry();
-    if (!isValid) {
-      const newToken = await this.refreshToken();
-      return !!newToken;
-    }
-    return true;
-  }
-}
+// NOTE: TokenManager removed - using cookie-based authentication
 
 class ApiService {
-  private tokenManager: TokenManager;
+  // TokenManager disabled for cookie-based authentication
+  // private tokenManager: TokenManager;
 
   constructor() {
-    this.tokenManager = new TokenManager(this);
+    // TokenManager disabled for cookie-based authentication
+    // this.tokenManager = new TokenManager(this);
   }
 
   getAuthToken(): string | null {
     return localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
   }
 
-  // Initialize token management (call this after successful login)
+  // Initialize token management (disabled for cookie-based auth)
   initializeTokenManagement(): void {
-    this.tokenManager.startAutoRefresh();
+    // Disabled for cookie-based authentication
+    // this.tokenManager.startAutoRefresh();
+    console.log('🍪 Cookie-based authentication - token management disabled');
   }
 
-  // Stop token management (call this on logout)
+  // Stop token management (disabled for cookie-based auth)
   stopTokenManagement(): void {
-    this.tokenManager.stopAutoRefresh();
+    // Disabled for cookie-based authentication  
+    // this.tokenManager.stopAutoRefresh();
+    console.log('🍪 Cookie-based authentication - token management disabled');
   }
 
-  // Validate token and refresh if needed before making requests
+  // Validate token and refresh if needed (disabled for cookie-based auth)
   async ensureValidToken(): Promise<boolean> {
-    return await this.tokenManager.validateAndRefreshIfNeeded();
+    // Disabled for cookie-based authentication
+    // return await this.tokenManager.validateAndRefreshIfNeeded();
+    console.log('🍪 Cookie-based authentication - token validation disabled');
+    return true; // Always return true for cookie-based auth
   }
 
   async request<T>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
-    // Ensure token is valid before making the request
-    if (this.getAuthToken()) {
-      const isValid = await this.ensureValidToken();
-      if (!isValid) {
-        throw new Error('Authentication failed - please login again');
-      }
-    }
-
+    // Skip token validation for cookie-based authentication
+    // The backend will handle authentication via cookies
+    
     const token = this.getAuthToken();
     
     const config: RequestInit = {
       ...options,
+      credentials: 'include', // Always include cookies for authentication
       headers: {
         'Content-Type': 'application/json',
+        // Keep token support for backward compatibility, but cookies take precedence
         ...(token && { Authorization: `Bearer ${token}` }),
         ...options.headers,
       },
@@ -246,27 +197,13 @@ class ApiService {
       const data = await response.json();
 
       if (!response.ok) {
-        // If we get a 401, try to refresh the token once
-        if (response.status === 401 && token) {
-          console.log('🔄 Got 401, attempting token refresh...');
-          const newToken = await this.tokenManager.refreshToken();
-          if (newToken) {
-            // Retry the request with the new token
-            const retryConfig = {
-              ...config,
-              headers: {
-                ...config.headers,
-                Authorization: `Bearer ${newToken}`,
-              },
-            };
-            const retryResponse = await fetch(`${API_BASE_URL}${endpoint}`, retryConfig);
-            const retryData = await retryResponse.json();
-            
-            if (!retryResponse.ok) {
-              throw new Error(retryData.message || retryData.error || `HTTP ${retryResponse.status}`);
-            }
-            
-            return retryData;
+        // For cookie-based authentication, don't try to refresh tokens
+        // If we get a 401, it means the user needs to re-authenticate
+        if (response.status === 401) {
+          console.log('❌ Authentication failed - redirecting to login');
+          this.clearAuthData();
+          if (typeof window !== 'undefined') {
+            window.location.href = '/oauth2-login';
           }
         }
         
@@ -280,12 +217,32 @@ class ApiService {
     }
   }
 
-  // OAuth2 Authentication
-  async getProfile(): Promise<ApiResponse<ProfileUser>> {
-    return this.request<ProfileUser>('/auth/profile');
+  // OAuth2 Authentication - NEW COOKIE-BASED METHODS
+  async getMe(): Promise<ApiResponse<ProfileUser>> {
+    return this.request<ProfileUser>('/auth/me', {
+      method: 'GET',
+      credentials: 'include', // Include cookies
+    });
   }
 
+  // V1 API: User Profile Management
+  async getUserProfile(): Promise<ProfileUser> {
+    const response = await this.request<ProfileUser>('/api/v1/user/profile');
+    if (response.data) {
+      return response.data;
+    }
+    throw new Error('Failed to get user profile');
+  }
+
+  // LEGACY - Keep for backward compatibility but redirect to new V1 endpoint
+  async getProfile(): Promise<ApiResponse<ProfileUser>> {
+    return this.request<ProfileUser>('/api/v1/user/profile');
+  }
+
+  // DEPRECATED - Token-based methods (kept for backward compatibility)
+  // These are no longer used with cookie-based authentication
   async refreshToken(): Promise<ApiResponse<{ access_token: string; refresh_token: string }>> {
+    console.warn('⚠️ refreshToken is deprecated - using cookie-based authentication');
     const refreshToken = localStorage.getItem('refresh_token');
     return this.request<{ access_token: string; refresh_token: string }>('/auth/refresh', {
       method: 'POST',
@@ -293,30 +250,30 @@ class ApiService {
     });
   }
 
-  // New token refresh endpoint
   async refreshCurrentToken(): Promise<ApiResponse<{ access_token: string }>> {
+    console.warn('⚠️ refreshCurrentToken is deprecated - using cookie-based authentication');
     return this.request<{ access_token: string }>('/auth/refresh-token', {
       method: 'POST',
     });
   }
 
-  // Get token information
   async getTokenInfo(): Promise<ApiResponse<any>> {
+    console.warn('⚠️ getTokenInfo is deprecated - using cookie-based authentication');
     return this.request('/auth/token-info', {
       method: 'GET',
     });
   }
 
-  // Dashboard & Analytics
+  // V1 API: Analytics & Dashboard
   async getDashboardData(): Promise<ApiResponse<any>> {
-    return this.request<any>('/dashboard');
+    return this.request<any>('/api/v1/analytics/dashboard');
   }
 
   async getAnalytics(): Promise<ApiResponse<AnalyticsData>> {
-    return this.request<AnalyticsData>('/analytics');
+    return this.request<AnalyticsData>('/api/v1/analytics/overview');
   }
 
-  // New Processed Messages endpoint
+  // V1 API: Messages Management  
   async getProcessedMessages(limit = 20, offset = 0): Promise<ApiResponse<ProcessedMessagesResponse>> {
     const params = new URLSearchParams({
       limit: limit.toString(),
@@ -325,13 +282,81 @@ class ApiService {
     return this.request<ProcessedMessagesResponse>(`/api/v1/messages/processed?${params.toString()}`);
   }
 
-  // Gmail Integration
+  async getMessages(limit = 20, offset = 0, source?: string, priority?: string, context?: string, search?: string, days?: number): Promise<ApiResponse<V1MessageResponse>> {
+    const params = new URLSearchParams({
+      limit: limit.toString(),
+      offset: offset.toString()
+    });
+    if (source) params.append('source', source);
+    if (priority) params.append('priority', priority);
+    if (context) params.append('context', context);
+    if (search) params.append('search', search);
+    if (days) params.append('days', days.toString());
+    
+    return this.request<V1MessageResponse>(`/api/v1/messages/?${params.toString()}`);
+  }
+
+  async getMessageById(messageId: string): Promise<ApiResponse<any>> {
+    return this.request<any>(`/api/v1/messages/${messageId}`);
+  }
+
+  async deleteMessage(messageId: string): Promise<ApiResponse<any>> {
+    return this.request<any>(`/api/v1/messages/${messageId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async fetchMessages(source: string = 'all', max_messages: number = 50, force_sync: boolean = false): Promise<ApiResponse<any>> {
+    return this.request<any>('/api/v1/messages/fetch', {
+      method: 'POST',
+      body: JSON.stringify({ source, max_messages, force_sync }),
+    });
+  }
+
+  async getMessagesAnalytics(days: number = 30, source?: string): Promise<ApiResponse<any>> {
+    const params = new URLSearchParams({ days: days.toString() });
+    if (source) params.append('source', source);
+    return this.request<any>(`/api/v1/messages/analytics/summary?${params.toString()}`);
+  }
+
+  async submitMessageFeedback(messageId: string, feedbackPriority: string, feedbackContext?: string): Promise<ApiResponse<any>> {
+    return this.request<any>(`/api/v1/messages/${messageId}/feedback`, {
+      method: 'POST',
+      body: JSON.stringify({ 
+        feedback_priority: feedbackPriority,
+        feedback_context: feedbackContext
+      }),
+    });
+  }
+
+  // V1 API: Gmail Integration
+  async getGmailStatus(): Promise<ApiResponse<any>> {
+    return this.request<any>('/api/v1/gmail/status');
+  }
+
   async connectGmail(): Promise<ApiResponse<{ authUrl: string }>> {
-    return this.request<{ authUrl: string }>('/gmail/connect', {
+    return this.request<{ authUrl: string }>('/auth/google/init', {
       method: 'POST',
     });
   }
 
+  async fetchGmailMessages(options: any = {}): Promise<ApiResponse<any>> {
+    return this.request<any>('/api/v1/messages/fetch', {
+      method: 'POST',
+      body: JSON.stringify({
+        source: options.source || 'gmail',
+        max_messages: options.max_messages || 50,
+        force_sync: options.force_sync || false
+      }),
+    });
+  }
+
+  async getGmailAnalytics(days: number = 30): Promise<ApiResponse<any>> {
+    const params = new URLSearchParams({ days: days.toString() });
+    return this.request<any>(`/api/v1/gmail/analytics?${params.toString()}`);
+  }
+
+  // Legacy Gmail methods (kept for backward compatibility)
   async getGmailMessages(pageToken?: string): Promise<ApiResponse<GmailResponse>> {
     const params = new URLSearchParams();
     if (pageToken) params.append('pageToken', pageToken);
@@ -406,14 +431,6 @@ class ApiService {
     this.initializeTokenManagement();
   }
 
-  async getUserProfile(): Promise<ProfileUser> {
-    const response = await this.getProfile();
-    if (response.data) {
-      return response.data;
-    }
-    throw new Error('Failed to get user profile');
-  }
-
   async logout(): Promise<void> {
     try {
       await this.request('/auth/logout', {
@@ -435,41 +452,41 @@ class ApiService {
     sessionStorage.removeItem('user_name');
   }
 
-  // Additional methods used by DataContext
-  async fetchGmailMessages(options: any): Promise<ApiResponse<any>> {
-    const params = new URLSearchParams(options);
-    return this.request(`/gmail/messages?${params}`);
-  }
-
-  async fetchMessages(source: string): Promise<ApiResponse<any>> {
-    return this.request(`/messages/${source}`);
-  }
-
-  async submitPredictionFeedback(messageId: string, correctedPriority: string, feedbackScore: number, correctedContext: string): Promise<ApiResponse<any>> {
-    return this.request(`/messages/${messageId}/feedback`, {
+  // V1 API: Feedback and Prediction
+  async submitPredictionFeedback(messageId: string, correctedPriority: string, feedbackScore?: number, correctedContext?: string): Promise<ApiResponse<any>> {
+    return this.request(`/api/v1/messages/${messageId}/feedback`, {
       method: 'POST',
       body: JSON.stringify({ 
-        correctedPriority, 
-        feedbackScore, 
-        correctedContext 
+        feedback_priority: correctedPriority, 
+        feedback_context: correctedContext,
+        ...(feedbackScore !== undefined && { score: feedbackScore })
       }),
     });
   }
 
-  async predictMessagePriority(messageData: any, options: any): Promise<ApiResponse<any>> {
-    return this.request('/ai/predict-priority', {
+  async predictMessagePriority(messageData: any, options: any = {}): Promise<ApiResponse<any>> {
+    return this.request('/api/v1/prediction/predict', {
       method: 'POST',
-      body: JSON.stringify({ message: messageData, options }),
+      body: JSON.stringify({ 
+        subject: messageData.subject,
+        sender_domain: messageData.sender_domain || messageData.from,
+        source: messageData.source || 'gmail',
+        metadata: options 
+      }),
     });
   }
 
-  async getUserAnalytics(userId: number, options: any): Promise<ApiResponse<any>> {
-    const params = new URLSearchParams(options);
-    return this.request(`/analytics/user/${userId}?${params}`);
+  // V1 API: User Analytics
+  async getUserAnalytics(userId: number, options: any = {}): Promise<ApiResponse<any>> {
+    const params = new URLSearchParams({
+      days: options.days?.toString() || '30',
+      includeTrends: options.includeTrends?.toString() || 'true'
+    });
+    return this.request(`/api/v1/analytics/user/${userId}?${params.toString()}`);
   }
 
   async getDashboardStats(): Promise<ApiResponse<any>> {
-    return this.request('/dashboard/stats');
+    return this.request('/api/v1/analytics/dashboard');
   }
 
   // Additional methods used by GmailTest
@@ -495,10 +512,6 @@ class ApiService {
     };
   }
 
-  async getGmailStatus(): Promise<ApiResponse<any>> {
-    return this.request('/gmail/status');
-  }
-
   async initGoogleAuth(userId: string): Promise<ApiResponse<any>> {
     return this.request('/auth/google/init', {
       method: 'POST',
@@ -520,6 +533,7 @@ export type {
   GmailMessage,
   GmailResponse,
   ProcessedMessagesResponse,
+  V1MessageResponse,
   AnalyticsData,
   LoginRequest,
   RegisterRequest,

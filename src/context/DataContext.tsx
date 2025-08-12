@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import ApiService from '../services/api';
 import { useOAuth2Auth } from './OAuth2AuthContext';
+import { Context } from '../components/UI/ContextTag';
 
 export interface Message {
   id: string;
@@ -10,7 +11,7 @@ export interface Message {
   timestamp: string;
   source: 'gmail' | 'whatsapp';
   priority: 'very_urgent' | 'important' | 'not_important';
-  context: 'business' | 'personal';
+  context: Context;
   confidence: number;
   isRead: boolean;
   fullContent?: string;
@@ -36,7 +37,7 @@ interface DataContextType {
   // Message operations
   fetchMessages: (params?: any) => Promise<void>;
   triggerMessageFetch: (source?: 'gmail' | 'whatsapp') => Promise<void>;
-  submitFeedback: (messageId: string, correctedPriority: string, correctedContext: string) => Promise<void>;
+  submitFeedback: (messageId: string, correctedPriority: string, correctedContext: Context) => Promise<void>;
   predictMessage: (messageData: any) => Promise<any>;
   
   // Analytics operations
@@ -59,6 +60,30 @@ export function useData() {
 interface DataProviderProps {
   children: ReactNode;
 }
+
+// Helper function to map API category to our Context type
+const mapCategoryToContext = (category: string): Context => {
+  switch (category?.toLowerCase()) {
+    case 'business':
+    case 'work':
+      return 'business';
+    case 'education':
+    case 'learning':
+      return 'education';
+    case 'personal':
+      return 'personal';
+    case 'social':
+    case 'networking':
+      return 'social';
+    case 'promotions':
+    case 'marketing':
+    case 'commercial':
+      return 'promotions';
+    case 'general':
+    default:
+      return 'general';
+  }
+};
 
 export function DataProvider({ children }: DataProviderProps) {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -92,7 +117,7 @@ export function DataProvider({ children }: DataProviderProps) {
           priority: (msg.priority === 'high' ? 'very_urgent' : 
                     msg.priority === 'medium' ? 'important' : 
                     'not_important') as 'very_urgent' | 'important' | 'not_important',
-          context: (msg.category?.includes('business') ? 'business' : 'personal') as 'business' | 'personal',
+          context: mapCategoryToContext(msg.category),
           confidence: msg.confidence || 0,
           isRead: msg.isRead || false,
           fullContent: msg.body
@@ -139,7 +164,7 @@ export function DataProvider({ children }: DataProviderProps) {
   };
 
   // Submit feedback for message prediction
-  const submitFeedback = async (messageId: string, correctedPriority: string, correctedContext: string): Promise<void> => {
+  const submitFeedback = async (messageId: string, correctedPriority: string, correctedContext: Context): Promise<void> => {
     try {
       setError(null);
       
