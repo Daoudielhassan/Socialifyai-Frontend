@@ -65,7 +65,6 @@ export function OAuth2AuthProvider({ children }: OAuth2AuthProviderProps) {
       // Check for OAuth callback parameters in URL
       const urlParams = new URLSearchParams(window.location.search);
       const token = urlParams.get('token');
-      const refreshToken = urlParams.get('refresh_token');
       const userId = urlParams.get('user_id');
       const email = urlParams.get('email');
       const name = urlParams.get('name') || urlParams.get('full_name');
@@ -73,19 +72,20 @@ export function OAuth2AuthProvider({ children }: OAuth2AuthProviderProps) {
       console.log('🔐 Checking URL parameters for OAuth data...');
       console.log('🔐 URL:', window.location.href);
       console.log('🔐 URL Search:', window.location.search);
-      console.log('🔐 Token:', token ? token.substring(0, 20) + '...' : 'null');
+      console.log('🔐 Token in URL:', token ? 'present (not used with httpOnly cookies)' : 'null');
       console.log('🔐 User ID:', userId);
       console.log('🔐 Email:', email);
       console.log('🔐 Name:', name);
 
-      if (token && userId && email) {
-        console.log('🔐 Found OAuth token in URL parameters');
+      // With httpOnly cookies, we don't use tokens from URL parameters
+      // The server should have already set the httpOnly cookies
+      // We only use the URL parameters for initial user data if available
+      
+      if (userId && email) {
+        console.log('🔐 Found user data in URL parameters');
         
-        // Store the token securely and initialize token management
-        ApiService.setToken(token);
-        if (refreshToken) {
-          localStorage.setItem('refresh_token', refreshToken);
-        }
+        // Don't store tokens - they should be httpOnly cookies
+        // ApiService.setToken() is deprecated for httpOnly cookie setup
         
         // Create user object from URL parameters
         const user = {
@@ -110,9 +110,9 @@ export function OAuth2AuthProvider({ children }: OAuth2AuthProviderProps) {
           }
         };
 
-        console.log('🔐 Created user object:', user);
+        console.log('🔐 Created user object from URL params:', user);
 
-        // Store user data in session for backward compatibility
+        // Store user data in session for UI purposes only (not security)
         if (typeof window !== 'undefined') {
           sessionStorage.setItem('user_email', user.email);
           sessionStorage.setItem('user_name', user.full_name);
@@ -121,7 +121,7 @@ export function OAuth2AuthProvider({ children }: OAuth2AuthProviderProps) {
         setUser(user);
         setIsAuthenticated(true);
         
-        console.log('✅ OAuth2 authentication successful from URL:', user.email);
+        console.log('✅ OAuth2 authentication successful from URL (httpOnly cookies):', user.email);
         
         // Clean up the URL
         const cleanUrl = window.location.pathname;
@@ -131,10 +131,10 @@ export function OAuth2AuthProvider({ children }: OAuth2AuthProviderProps) {
         setIsLoading(false);
         return;
       } else {
-        console.log('🔐 No OAuth parameters found in URL, trying token validation...');
+        console.log('🔐 No user data in URL, trying authentication validation...');
       }
 
-      // Fallback: validate existing token
+      // Fallback: validate existing authentication via API call
       await validateToken();
     } catch (error: any) {
       console.error('❌ URL params auth failed, trying token validation:', error);
@@ -144,89 +144,49 @@ export function OAuth2AuthProvider({ children }: OAuth2AuthProviderProps) {
 
   const validateToken = async () => {
     try {
-      const token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
-      if (token) {
-        console.log('🔐 Validating existing token...');
-        
-        // Try to get user profile, but don't fail if it errors
-        try {
-          const response = await ApiService.getProfile();
-          if (response.data) {
-            // Map ProfileUser to OAuth2 User format
-            const profileUser = response.data;
-            const mappedUser: User = {
-              id: profileUser.id,
-              email: profileUser.email,
-              full_name: profileUser.full_name,
-              auth_method: profileUser.auth_method,
-              created_at: profileUser.created_at,
-              last_login: profileUser.last_login,
-              settings: {
-                privacy_level: 'high',
-                ai_suggestions: true,
-                notification_frequency: 'daily',
-                timezone: 'UTC'
-              },
-              connected_services: {
-                gmail: {
-                  connected: profileUser.gmail_connected,
-                  permissions: ['read'],
-                  last_sync: new Date().toISOString()
-                }
+      // With httpOnly cookies, we don't check localStorage for tokens
+      // Instead, we make an API call to see if we're authenticated
+      console.log('🔐 Validating authentication via API call (httpOnly cookies)...');
+      
+      try {
+        const response = await ApiService.getProfile();
+        if (response.data) {
+          // Map ProfileUser to OAuth2 User format
+          const profileUser = response.data;
+          const mappedUser: User = {
+            id: profileUser.id,
+            email: profileUser.email,
+            full_name: profileUser.full_name,
+            auth_method: profileUser.auth_method,
+            created_at: profileUser.created_at,
+            last_login: profileUser.last_login,
+            settings: {
+              privacy_level: 'high',
+              ai_suggestions: true,
+              notification_frequency: 'daily',
+              timezone: 'UTC'
+            },
+            connected_services: {
+              gmail: {
+                connected: profileUser.gmail_connected,
+                permissions: ['read'],
+                last_sync: new Date().toISOString()
               }
-            };
-            setUser(mappedUser);
-            setIsAuthenticated(true);
-            console.log('✅ Token validation successful:', mappedUser.email);
-          }
-        } catch (profileError: any) {
-          console.warn('⚠️ User profile fetch failed, but token is valid:', profileError.message);
-          // If we have stored user data in session, use that
-          const storedEmail = sessionStorage.getItem('user_email');
-          const storedName = sessionStorage.getItem('user_name');
-          
-          if (storedEmail) {
-            const fallbackUser = {
-              id: 0, // Will be updated when profile API is fixed
-              email: storedEmail,
-              full_name: storedName || storedEmail,
-              auth_method: 'oauth',
-              created_at: new Date().toISOString(),
-              last_login: new Date().toISOString(),
-              settings: {
-                privacy_level: 'high',
-                ai_suggestions: true,
-                notification_frequency: 'daily',
-                timezone: 'UTC'
-              },
-              connected_services: {
-                gmail: {
-                  connected: true,
-                  permissions: ['read'],
-                  last_sync: new Date().toISOString()
-                }
-              }
-            };
-            
-            setUser(fallbackUser);
-            setIsAuthenticated(true);
-            console.log('✅ Using fallback user data:', fallbackUser.email);
-          } else {
-            // No stored data, authentication failed
-            throw profileError;
-          }
+            }
+          };
+          setUser(mappedUser);
+          setIsAuthenticated(true);
+          console.log('✅ Authentication validation successful (httpOnly cookies):', mappedUser.email);
         }
-      } else {
-        console.log('🔐 No existing token found');
+      } catch (profileError: any) {
+        console.warn('⚠️ User profile fetch failed - not authenticated:', profileError.message);
+        // With httpOnly cookies, if the API call fails, we're not authenticated
+        // No fallback to localStorage since tokens are not accessible
+        setUser(null);
+        setIsAuthenticated(false);
       }
     } catch (error: any) {
-      console.error('❌ Token validation failed:', error);
-      // Clear invalid token data
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('refresh_token');
-      sessionStorage.removeItem('access_token');
-      sessionStorage.removeItem('user_email');
-      sessionStorage.removeItem('user_name');
+      console.error('❌ Authentication validation failed:', error);
       setUser(null);
       setIsAuthenticated(false);
     } finally {
@@ -287,25 +247,53 @@ export function OAuth2AuthProvider({ children }: OAuth2AuthProviderProps) {
       setIsLoading(true);
       setError(null);
       
-      console.log('🔐 Processing OAuth callback...');
+      console.log('🔐 Processing OAuth callback (httpOnly cookies)...');
       console.log('🔐 Code:', code?.substring(0, 20) + '...');
       console.log('🔐 State:', state);
       
       const response = await ApiService.handleOAuthCallback(code, state);
       console.log('🔐 Callback response:', response);
       
-      // Check if response contains access token and user data
-      if (!response.access_token) {
-        throw new Error('No access token received from server');
+      // With httpOnly cookies, the server sets the authentication cookies automatically
+      // We don't need to manually handle tokens - they're set as httpOnly cookies
+      // The response should contain user data or success confirmation
+      
+      let userData;
+      if (response.data) {
+        // If response is wrapped in ApiResponse format
+        const responseData = response.data as any;
+        userData = responseData.user || responseData.user_info || responseData;
+      } else {
+        // If response is direct data
+        const responseAny = response as any;
+        userData = responseAny.user || responseAny.user_info || responseAny;
       }
       
-      // Handle different response formats - backend returns user_info instead of user
-      const userData = response.user || response.user_info;
-      if (!userData) {
-        throw new Error('No user data received from server');
+      if (!userData || !userData.email) {
+        // If no user data in response, try to fetch user profile
+        // The httpOnly cookies should now be set, so this should work
+        try {
+          const profileResponse = await ApiService.getProfile();
+          if (profileResponse.data) {
+            userData = {
+              id: profileResponse.data.id,
+              email: profileResponse.data.email,
+              name: profileResponse.data.full_name,
+              full_name: profileResponse.data.full_name,
+              auth_method: profileResponse.data.auth_method,
+              created_at: profileResponse.data.created_at,
+              last_login: profileResponse.data.last_login,
+              gmail_connected: profileResponse.data.gmail_connected
+            };
+          } else {
+            throw new Error('No user data received from server');
+          }
+        } catch (profileError) {
+          throw new Error('Authentication succeeded but failed to fetch user profile');
+        }
       }
       
-      // Map backend user_info to frontend user format
+      // Map backend user data to frontend user format
       const user = {
         id: userData.user_id || userData.id,
         email: userData.email,
@@ -328,10 +316,10 @@ export function OAuth2AuthProvider({ children }: OAuth2AuthProviderProps) {
         }
       };
       
-      // Store token and user data
-      ApiService.setToken(response.access_token);
+      // With httpOnly cookies, tokens are managed server-side
+      // No need to call ApiService.setToken() - cookies are already set
       
-      // Store user data in session for backward compatibility
+      // Store user data in session for UI purposes only (not security)
       if (typeof window !== 'undefined') {
         sessionStorage.setItem('user_email', user.email);
         sessionStorage.setItem('user_name', user.full_name);
@@ -340,7 +328,7 @@ export function OAuth2AuthProvider({ children }: OAuth2AuthProviderProps) {
       setUser(user);
       setIsAuthenticated(true);
       
-      console.log('✅ OAuth2 authentication successful:', user.email);
+      console.log('✅ OAuth2 authentication successful (httpOnly cookies):', user.email);
       
       // Redirect to original URL or dashboard
       const redirectUrl = sessionStorage.getItem('oauth_redirect_url') || '/dashboard';
@@ -391,14 +379,21 @@ export function OAuth2AuthProvider({ children }: OAuth2AuthProviderProps) {
 
   const logout = async () => {
     try {
+      // Call server-side logout to clear httpOnly cookies
       await ApiService.logout();
+      console.log('✅ Server-side logout successful (httpOnly cookies cleared)');
     } catch (error) {
-      console.warn('Server logout failed, proceeding with local logout');
+      console.warn('⚠️ Server logout failed, proceeding with local logout:', error);
     } finally {
+      // Clear local auth data (but not tokens since they're httpOnly)
       ApiService.clearAuthData();
+      
+      // Clear user state
       setUser(null);
       setIsAuthenticated(false);
       setError(null);
+      
+      console.log('🔐 Local logout completed (httpOnly cookies cleared by server)');
       
       // Redirect to OAuth2 login
       if (typeof window !== 'undefined') {

@@ -133,6 +133,51 @@ interface AnalyticsData {
   };
 }
 
+// Feedback API Types
+export interface FeedbackRequest {
+  message_id: number;
+  feedback_priority?: 'high' | 'medium' | 'low';
+  feedback_context?: 'work' | 'personal' | 'general';
+}
+
+export interface FeedbackResponse {
+  operation: string;
+  message_id: number;
+  feedback: {
+    priority?: string;
+    context?: string;
+  };
+  result: {
+    status: string;
+    message: string;
+    feedback_type: string;
+    updates_applied: number;
+  };
+  api_version: string;
+}
+
+export interface FeedbackSummary {
+  operation: string;
+  user_id: number;
+  period_days: number;
+  summary: {
+    total_feedback: number;
+    feedback_breakdown: {
+      priority_corrections: number;
+      context_corrections: number;
+      both_corrections: number;
+    };
+    feedback_quality: 'excellent' | 'good' | 'poor';
+    model_improvement: {
+      samples_available: number;
+      samples_used: number;
+      next_training_eligible: boolean;
+    };
+    summary_generated: string;
+  };
+  api_version: string;
+}
+
 const API_BASE_URL = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 // NOTE: TokenManager removed - using cookie-based authentication

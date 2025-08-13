@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Endpoint Testing Suite</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 20px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .config-section {
+            background: #ecf0f1;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .input-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #34495e;
+        }
+        
+        input[type="text"], input[type="url"] {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        
+        input[type="text"]:focus, input[type="url"]:focus {
+            border-color: #3498db;
+            outline: none;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        
+        button {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            flex: 1;
+            min-width: 150px;
+        }
+        
+        .btn-primary {
+            background: #3498db;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #2980b9;
+        }
+        
+        .btn-secondary {
+            background: #95a5a6;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #7f8c8d;
+        }
+        
+        .btn-success {
+            background: #27ae60;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #219a52;
+        }
+        
+        .btn-warning {
+            background: #f39c12;
+            color: white;
+        }
+        
+        .btn-warning:hover {
+            background: #e67e22;
+        }
+        
+        .btn-danger {
+            background: #e74c3c;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #c0392b;
+        }
+        
+        .btn-small {
+            padding: 8px 12px;
+            font-size: 12px;
+            margin-left: 8px;
+        }
+        
+        .token-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 5px;
+        }
+        
+        .token-status {
+            font-size: 12px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            margin-top: 5px;
+        }
+        
+        .token-status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        #output {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            max-height: 600px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            display: none;
+        }
+        
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        
+        .status.info {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status.warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .results-summary {
+            display: none;
+            margin-top: 20px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 5px solid #3498db;
+        }
+        
+        .metric {
+            display: inline-block;
+            margin: 10px 15px;
+            padding: 10px;
+            background: white;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            text-align: center;
+            min-width: 80px;
+        }
+        
+        .metric-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        
+        .metric-label {
+            font-size: 12px;
+            color: #7f8c8d;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 API Endpoint Testing Suite</h1>
+        <p style="text-align: center; color: #7f8c8d;">
+            Comprehensive testing for all Socialify API endpoints
+        </p>
+        
+        <div class="config-section">
+            <h3>🔧 Configuration</h3>
+            <div class="input-group">
+                <label for="apiUrl">API Base URL:</label>
+                <input type="url" id="apiUrl" value="http://localhost:8000" placeholder="http://localhost:8000">
+            </div>
+            <div class="input-group">
+                <label for="gmailToken">Gmail Token (Optional):</label>
+                <div class="token-container">
+                    <input type="text" id="gmailToken" placeholder="Paste your Gmail token here for enhanced testing..." style="flex: 1;">
+                    <button class="btn-success btn-small" onclick="useScriptToken()" title="Use the token from run-api-tests.ts">
+                        📧 Use Script Token
+                    </button>
+                    <button class="btn-danger btn-small" onclick="clearToken()" id="clearTokenBtn" style="display: none;" title="Clear Gmail token">
+                        🗑️ Clear
+                    </button>
+                </div>
+                <small style="color: #7f8c8d;">
+                    📧 Providing a Gmail token will enable testing of Gmail-specific endpoints
+                </small>
+                <div id="tokenStatus" class="token-status" style="display: none;"></div>
+            </div>
+        </div>
+        
+        <div class="button-group">
+            <button class="btn-primary" onclick="runAllTests()">
+                🚀 Run All Tests
+            </button>
+            <button class="btn-success" onclick="runQuickHealth()">
+                ⚡ Quick Health Check
+            </button>
+            <button class="btn-secondary" onclick="runAuthTests()">
+                🔐 Auth Tests
+            </button>
+            <button class="btn-warning" onclick="checkAuthStatus()">
+                🔍 Check Auth Status
+            </button>
+            <button class="btn-secondary" onclick="runGmailTests()">
+                📧 Gmail Tests
+            </button>
+            <button class="btn-secondary" onclick="runMessageTests()">
+                📨 Message Tests
+            </button>
+            <button class="btn-secondary" onclick="runAnalyticsTests()">
+                📊 Analytics Tests
+            </button>
+            <button class="btn-warning" onclick="runDebugTests()">
+                🧪 Debug Tests
+            </button>
+            <button class="btn-danger" onclick="clearOutput()">
+                🗑️ Clear Output
+            </button>
+        </div>
+        
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <div>Running tests... Please wait</div>
+        </div>
+        
+        <div class="results-summary" id="resultsSummary">
+            <h3>📊 Test Results Summary</h3>
+            <div id="metricsContainer"></div>
+        </div>
+        
+        <div id="output"></div>
+    </div>
+
+    <script>
+        // Global variables
+        let isTestRunning = false;
+        
+        // Gmail Token Management
+        function loadGmailToken() {
+            const savedToken = localStorage.getItem('gmail_token');
+            const gmailTokenInput = document.getElementById('gmailToken');
+            if (savedToken) {
+                gmailTokenInput.value = savedToken;
+                updateTokenStatus(savedToken);
+                log(`📧 Gmail token loaded from localStorage (${savedToken.substring(0, 20)}...)`, 'success');
+            }
+        }
+        
+        function saveGmailToken(token) {
+            const gmailTokenInput = document.getElementById('gmailToken');
+            gmailTokenInput.value = token;
+            if (token) {
+                localStorage.setItem('gmail_token', token);
+                updateTokenStatus(token);
+                log('📧 Gmail token saved to localStorage', 'success');
+            } else {
+                localStorage.removeItem('gmail_token');
+                updateTokenStatus('');
+            }
+        }
+        
+        function useScriptToken() {
+            const scriptToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMyIsImVtYWlsIjoiZGFvdWRpaGE2QGdtYWlsLmNvbSIsImV4cCI6MTc1NTM3MDUwNn0.ajqTgmdgNPlSCOlpqsHeiqhZYaA4kwlpOl07ZfKVMPI';
+            saveGmailToken(scriptToken);
+            
+            // ⚠️ DEPRECATED: With httpOnly cookies, tokens are managed server-side
+            // This function is kept for testing purposes only
+            log('⚠️ Using test token - this is for testing only with httpOnly cookies', 'warning');
+            log('� In production, authentication uses secure httpOnly cookies', 'info');
+        }
+        
+        function clearToken() {
+            saveGmailToken('');
+            // ⚠️ DEPRECATED: With httpOnly cookies, tokens are managed server-side
+            log('📧 Gmail token cleared (test purposes only)', 'warning');
+            log('🍪 Note: Authentication tokens are now managed via httpOnly cookies', 'info');
+            checkAuthStatus();
+        }
+        
+        // Check current authentication status
+        function checkAuthStatus() {
+            // ⚠️ DEPRECATED: With httpOnly cookies, token validation happens server-side
+            log('⚠️ Authentication status checking is deprecated with httpOnly cookies', 'warning');
+            log('🍪 Authentication is now managed via secure httpOnly cookies', 'info');
+            log('� Check server-side authentication status via API calls', 'info');
+        }
+        
+        function updateTokenStatus(token) {
+            const statusDiv = document.getElementById('tokenStatus');
+            const clearBtn = document.getElementById('clearTokenBtn');
+            
+            if (token) {
+                statusDiv.textContent = `✅ Token provided: ${token.substring(0, 20)}...`;
+                statusDiv.className = 'token-status success';
+                statusDiv.style.display = 'block';
+                clearBtn.style.display = 'inline-block';
+            } else {
+                statusDiv.style.display = 'none';
+                clearBtn.style.display = 'none';
+            }
+        }
+        
+        // Add event listener for token input changes
+        document.addEventListener('DOMContentLoaded', function() {
+            loadGmailToken();
+            // Note: checkAuthStatus now shows deprecation warnings for httpOnly cookies
+            checkAuthStatus();
+            
+            const gmailTokenInput = document.getElementById('gmailToken');
+            gmailTokenInput.addEventListener('input', function() {
+                const token = this.value;
+                if (token) {
+                    localStorage.setItem('gmail_token', token);
+                    updateTokenStatus(token);
+                } else {
+                    localStorage.removeItem('gmail_token');
+                    updateTokenStatus('');
+                }
+            });
+        });
+        
+        // Utility functions
+        function log(message, type = 'info') {
+            const output = document.getElementById('output');
+            const timestamp = new Date().toLocaleTimeString();
+            
+            let icon = '';
+            switch(type) {
+                case 'success': icon = '✅'; break;
+                case 'error': icon = '❌'; break;
+                case 'warning': icon = '⚠️'; break;
+                case 'info': icon = 'ℹ️'; break;
+                default: icon = '📝'; break;
+            }
+            
+            output.textContent += `[${timestamp}] ${icon} ${message}\n`;
+            output.style.display = 'block';
+            output.scrollTop = output.scrollHeight;
+        }
+        
+        function showLoading(show = true) {
+            document.getElementById('loading').style.display = show ? 'block' : 'none';
+            isTestRunning = show;
+            
+            // Disable all buttons during testing
+            const buttons = document.querySelectorAll('button');
+            buttons.forEach(btn => btn.disabled = show);
+        }
+        
+        function showResults(results) {
+            const summary = document.getElementById('resultsSummary');
+            const container = document.getElementById('metricsContainer');
+            
+            const passed = results.filter(r => r.status === 'PASS').length;
+            const failed = results.filter(r => r.status === 'FAIL').length;
+            const skipped = results.filter(r => r.status === 'SKIP').length;
+            const total = results.length;
+            const successRate = total > 0 ? ((passed / (total - skipped)) * 100).toFixed(1) : 0;
+            
+            container.innerHTML = `
+                <div class="metric">
+                    <div class="metric-value">${total}</div>
+                    <div class="metric-label">Total</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-value" style="color: #27ae60;">${passed}</div>
+                    <div class="metric-label">Passed</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-value" style="color: #e74c3c;">${failed}</div>
+                    <div class="metric-label">Failed</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-value" style="color: #95a5a6;">${skipped}</div>
+                    <div class="metric-label">Skipped</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-value" style="color: #3498db;">${successRate}%</div>
+                    <div class="metric-label">Success Rate</div>
+                </div>
+            `;
+            
+            summary.style.display = 'block';
+        }
+        
+        function clearOutput() {
+            document.getElementById('output').textContent = '';
+            document.getElementById('output').style.display = 'none';
+            document.getElementById('resultsSummary').style.display = 'none';
+        }
+        
+        // Mock API testing functions (these would normally import from the test files)
+        async function mockApiTest(testName, endpoint, method = 'GET') {
+            const apiUrl = document.getElementById('apiUrl').value;
+            const gmailToken = document.getElementById('gmailToken').value;
+            
+            log(`Testing: ${testName} (${method} ${endpoint})`);
+            
+            try {
+                // Get authentication token from localStorage (following the same pattern as the API service)
+                const authToken = localStorage.getItem('socialify_token') || 
+                                 localStorage.getItem('jwt_token') ||
+                                 localStorage.getItem('access_token') ||
+                                 gmailToken; // fallback to Gmail token
+                
+                const headers = {
+                    'Content-Type': 'application/json',
+                    ...(gmailToken && { 'X-Gmail-Token': gmailToken })
+                };
+                
+                // Add Bearer authorization header if we have a token
+                if (authToken) {
+                    headers['Authorization'] = `Bearer ${authToken}`;
+                }
+                
+                // Simulate API call
+                const response = await fetch(`${apiUrl}${endpoint}`, {
+                    method: method,
+                    credentials: 'include',
+                    headers: headers,
+                    ...(method !== 'GET' && { body: JSON.stringify({}) })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    log(`✅ ${testName}: PASS`, 'success');
+                    return { status: 'PASS', endpoint: testName, method, response: data };
+                } else {
+                    log(`❌ ${testName}: FAIL - ${data.message || response.statusText}`, 'error');
+                    return { status: 'FAIL', endpoint: testName, method, error: data.message };
+                }
+            } catch (error) {
+                log(`❌ ${testName}: FAIL - ${error.message}`, 'error');
+                return { status: 'FAIL', endpoint: testName, method, error: error.message };
+            }
+        }
+        
+        // Test runner functions
+        async function runAllTests() {
+            if (isTestRunning) return;
+            
+            showLoading(true);
+            clearOutput();
+            
+            log('🚀 Starting comprehensive API endpoint tests...', 'info');
+            log(`📅 Test Date: ${new Date().toISOString()}`, 'info');
+            log(`🔧 API URL: ${document.getElementById('apiUrl').value}`, 'info');
+            
+            const gmailToken = document.getElementById('gmailToken').value;
+            if (gmailToken) {
+                log(`📧 Gmail Token: Provided (${gmailToken.substring(0, 20)}...)`, 'info');
+            } else {
+                log('📧 Gmail Token: Not provided', 'warning');
+            }
+            
+            const results = [];
+            
+            // Authentication Tests
+            log('\n🔐 TESTING AUTHENTICATION ENDPOINTS', 'info');
+            results.push(await mockApiTest('/auth/me', '/auth/me', 'GET'));
+            results.push(await mockApiTest('/auth/google', '/auth/google', 'GET'));
+            
+            // Gmail Tests
+            log('\n📧 TESTING GMAIL ENDPOINTS', 'info');
+            results.push(await mockApiTest('/api/v1/gmail/status', '/api/v1/gmail/status', 'GET'));
+            results.push(await mockApiTest('/api/v1/gmail/stats', '/api/v1/gmail/stats?days=30', 'GET'));
+            
+            // Message Tests
+            log('\n📨 TESTING MESSAGE ENDPOINTS', 'info');
+            results.push(await mockApiTest('/api/v1/messages/', '/api/v1/messages/?limit=10&offset=0', 'GET'));
+            
+            // Analytics Tests
+            log('\n📊 TESTING ANALYTICS ENDPOINTS', 'info');
+            results.push(await mockApiTest('/dashboard/stats', '/dashboard/stats?days=30', 'GET'));
+            results.push(await mockApiTest('/api/v1/analytics/overview', '/api/v1/analytics/overview', 'GET'));
+            
+            // Testing/Debug Tests
+            log('\n🧪 TESTING DEBUG ENDPOINTS', 'info');
+            results.push(await mockApiTest('/test/health', '/test/health', 'GET'));
+            results.push(await mockApiTest('/test/auth-check', '/test/auth-check', 'GET'));
+            
+            const passed = results.filter(r => r.status === 'PASS').length;
+            const failed = results.filter(r => r.status === 'FAIL').length;
+            
+            log(`\n📋 TEST SUMMARY:`, 'info');
+            log(`   Total Tests: ${results.length}`, 'info');
+            log(`   ✅ Passed: ${passed}`, 'success');
+            log(`   ❌ Failed: ${failed}`, failed > 0 ? 'error' : 'info');
+            log(`   📈 Success Rate: ${((passed / results.length) * 100).toFixed(1)}%`, 'info');
+            
+            showResults(results);
+            showLoading(false);
+            
+            log('\n✨ Test run completed!', 'success');
+        }
+        
+        async function runQuickHealth() {
+            if (isTestRunning) return;
+            
+            showLoading(true);
+            clearOutput();
+            
+            log('⚡ Running quick health check...', 'info');
+            
+            const results = [];
+            results.push(await mockApiTest('Health Check', '/test/health', 'GET'));
+            results.push(await mockApiTest('Auth Check', '/auth/me', 'GET'));
+            
+            const allPassed = results.every(r => r.status === 'PASS');
+            
+            log(`\n${allPassed ? '✅' : '❌'} Health Check: ${allPassed ? 'HEALTHY' : 'UNHEALTHY'}`, 
+                allPassed ? 'success' : 'error');
+            
+            showResults(results);
+            showLoading(false);
+        }
+        
+        async function runAuthTests() {
+            if (isTestRunning) return;
+            
+            showLoading(true);
+            clearOutput();
+            
+            log('🔐 Testing authentication endpoints...', 'info');
+            
+            const results = [];
+            results.push(await mockApiTest('/auth/me', '/auth/me', 'GET'));
+            results.push(await mockApiTest('/auth/google', '/auth/google', 'GET'));
+            results.push(await mockApiTest('/auth/google/init', '/auth/google/init', 'GET'));
+            
+            showResults(results);
+            showLoading(false);
+            log('🔐 Authentication tests completed!', 'success');
+        }
+        
+        async function runGmailTests() {
+            if (isTestRunning) return;
+            
+            showLoading(true);
+            clearOutput();
+            
+            log('📧 Testing Gmail endpoints...', 'info');
+            
+            const results = [];
+            results.push(await mockApiTest('/api/v1/gmail/status', '/api/v1/gmail/status', 'GET'));
+            results.push(await mockApiTest('/api/v1/gmail/stats', '/api/v1/gmail/stats?days=30', 'GET'));
+            results.push(await mockApiTest('/api/v1/gmail/analytics', '/api/v1/gmail/analytics?days=30', 'GET'));
+            
+            showResults(results);
+            showLoading(false);
+            log('📧 Gmail tests completed!', 'success');
+        }
+        
+        async function runMessageTests() {
+            if (isTestRunning) return;
+            
+            showLoading(true);
+            clearOutput();
+            
+            log('📨 Testing message processing endpoints...', 'info');
+            
+            const results = [];
+            results.push(await mockApiTest('/api/v1/messages/', '/api/v1/messages/?limit=10&offset=0', 'GET'));
+            results.push(await mockApiTest('/api/v1/messages/processed', '/api/v1/messages/processed?limit=10&offset=0', 'GET'));
+            results.push(await mockApiTest('/api/v1/messages/analytics', '/api/v1/messages/analytics/summary?days=30', 'GET'));
+            
+            showResults(results);
+            showLoading(false);
+            log('📨 Message tests completed!', 'success');
+        }
+        
+        async function runAnalyticsTests() {
+            if (isTestRunning) return;
+            
+            showLoading(true);
+            clearOutput();
+            
+            log('📊 Testing analytics endpoints...', 'info');
+            
+            const results = [];
+            results.push(await mockApiTest('/dashboard/stats', '/dashboard/stats?days=30', 'GET'));
+            results.push(await mockApiTest('/api/v1/analytics/overview', '/api/v1/analytics/overview', 'GET'));
+            results.push(await mockApiTest('/api/v1/analytics/dashboard', '/api/v1/analytics/dashboard', 'GET'));
+            results.push(await mockApiTest('/api/v1/analytics/system', '/api/v1/analytics/system', 'GET'));
+            
+            showResults(results);
+            showLoading(false);
+            log('📊 Analytics tests completed!', 'success');
+        }
+        
+        async function runDebugTests() {
+            if (isTestRunning) return;
+            
+            showLoading(true);
+            clearOutput();
+            
+            log('🧪 Testing debug/testing endpoints...', 'info');
+            
+            const results = [];
+            results.push(await mockApiTest('/test/health', '/test/health', 'GET'));
+            results.push(await mockApiTest('/test/test-db', '/test/test-db', 'GET'));
+            results.push(await mockApiTest('/test/auth-check', '/test/auth-check', 'GET'));
+            results.push(await mockApiTest('/test/gmail-diagnose', '/test/gmail-diagnose', 'POST'));
+            results.push(await mockApiTest('/test/gmail-token-info', '/test/gmail-token-info', 'GET'));
+            
+            showResults(results);
+            showLoading(false);
+            log('🧪 Debug tests completed!', 'success');
+        }
+        
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            log('🧪 API Endpoint Testing Suite loaded', 'info');
+            log('📝 Configure your settings above and click a test button to begin', 'info');
+        });
+    </script>
+</body>
+</html>

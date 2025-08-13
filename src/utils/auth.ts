@@ -3,38 +3,71 @@ interface AuthTokens {
   refresh_token: string;
 }
 
+// ⚠️ WARNING: These functions are deprecated when using httpOnly cookies
+// HttpOnly cookies are managed server-side and cannot be accessed via JavaScript
+// These functions are kept for backward compatibility only
+
 export const setAuthTokens = (tokens: AuthTokens): void => {
-  localStorage.setItem('access_token', tokens.access_token);
-  localStorage.setItem('refresh_token', tokens.refresh_token);
+  console.warn('⚠️ setAuthTokens() is deprecated when using httpOnly cookies');
+  console.warn('⚠️ Tokens should be set server-side as httpOnly cookies');
+  console.warn('⚠️ Attempted to set tokens:', tokens ? 'provided' : 'null');
+  // Don't store tokens in localStorage when using httpOnly cookies
+  // This is a security risk and defeats the purpose of httpOnly cookies
 };
 
 export const getAuthTokens = (): AuthTokens | null => {
-  const accessToken = localStorage.getItem('access_token') || 
-                     sessionStorage.getItem('access_token');
-  const refreshToken = localStorage.getItem('refresh_token') || 
-                      sessionStorage.getItem('refresh_token');
-  
-  if (accessToken && refreshToken) {
-    return { access_token: accessToken, refresh_token: refreshToken };
-  }
-  
+  console.warn('⚠️ getAuthTokens() is deprecated when using httpOnly cookies');
+  console.warn('⚠️ HttpOnly cookies cannot be accessed via JavaScript');
+  // With httpOnly cookies, tokens are not accessible to JavaScript
   return null;
 };
 
 export const clearAuthTokens = (): void => {
-  localStorage.removeItem('access_token');
-  localStorage.removeItem('refresh_token');
-  sessionStorage.removeItem('access_token');
-  sessionStorage.removeItem('refresh_token');
+  console.warn('⚠️ clearAuthTokens() is deprecated when using httpOnly cookies');
+  console.warn('⚠️ Use server-side logout to clear httpOnly cookies');
+  
+  // Legacy cleanup - remove any old tokens that might be stored
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    sessionStorage.removeItem('access_token');
+    sessionStorage.removeItem('refresh_token');
+    
+    // Clear other legacy token storage
+    localStorage.removeItem('socialify_token');
+    sessionStorage.removeItem('socialify_token');
+    sessionStorage.removeItem('jwt_token');
+  }
 };
 
 export const isAuthenticated = (): boolean => {
-  return !!getAuthTokens()?.access_token;
+  console.warn('⚠️ isAuthenticated() cannot reliably check httpOnly cookies');
+  console.warn('⚠️ Use API calls to check authentication status');
+  // With httpOnly cookies, we can't reliably check authentication client-side
+  // The app should use API calls to determine authentication status
+  return false;
 };
 
 export const getAuthToken = (): string | null => {
-  return localStorage.getItem('access_token') || 
-         sessionStorage.getItem('access_token');
+  console.warn('⚠️ getAuthToken() is deprecated when using httpOnly cookies');
+  console.warn('⚠️ HttpOnly cookies cannot be accessed via JavaScript');
+  // With httpOnly cookies, tokens are not accessible to JavaScript
+  return null;
+};
+
+// New helper function for httpOnly cookie authentication
+export const checkAuthenticationStatus = async (): Promise<boolean> => {
+  try {
+    // Make a test request to see if we're authenticated
+    const response = await fetch('/api/auth/me', {
+      credentials: 'include',
+      method: 'GET'
+    });
+    return response.ok;
+  } catch (error) {
+    console.error('Error checking authentication status:', error);
+    return false;
+  }
 };
 
 export default {
@@ -43,4 +76,5 @@ export default {
   clearAuthTokens,
   isAuthenticated,
   getAuthToken,
+  checkAuthenticationStatus,
 };
