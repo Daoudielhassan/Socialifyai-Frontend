@@ -20,7 +20,8 @@ import LoadingSkeleton from '../components/UI/LoadingSkeleton';
 import { Priority } from '../components/UI/PriorityTag';
 import { Context } from '../components/UI/ContextTag';
 import { useData } from '../context/DataContext';
-import apiService, { V1MessageResponse, ApiResponse } from '../services/api';
+import apiService, { V1MessageResponse, ApiResponse, BackendPriority } from '../services/api';
+import { priorityMapping, convertPriorityToFrontend } from '../utils/priorityUtils';
 
 // Helper functions to map API response to local types
 const mapApiPriorityToLocal = (apiPriority: string): Priority => {
@@ -35,6 +36,19 @@ const mapApiPriorityToLocal = (apiPriority: string): Priority => {
     case 'normal':
     default:
       return 'not_important';
+  }
+};
+
+// Helper function to map local Priority to backend BackendPriority
+const mapLocalPriorityToBackend = (localPriority: Priority): BackendPriority => {
+  switch (localPriority) {
+    case 'very_urgent':
+      return 'high';
+    case 'important':
+      return 'medium';
+    case 'not_important':
+    default:
+      return 'low';
   }
 };
 
@@ -300,7 +314,10 @@ export default function Inbox() {
     comments?: string;
   }) => {
     try {
-      await submitFeedback(feedback.messageId, feedback.correctPriority, feedback.correctContext);
+      // Convert UI Priority to FrontendPriority, then to backend priority
+      const frontendPriority = convertPriorityToFrontend(feedback.correctPriority);
+      const backendPriority = priorityMapping.toBackend(frontendPriority);
+      await submitFeedback(feedback.messageId, backendPriority, feedback.correctContext);
       console.log('Feedback submitted successfully');
     } catch (error) {
       console.error('Failed to submit feedback:', error);

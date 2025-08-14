@@ -45,7 +45,8 @@ interface EmailMessage {
   subject: string;
   body: string;
   isRead: boolean;
-  priority: 'high' | 'medium' | 'low';
+  priority: BackendPriority; // Backend format: 'high' | 'medium' | 'low'
+  displayPriority?: FrontendPriority; // Frontend format: 'urgent' | 'important' | 'not important'
   confidence: number;
   category: string;
   timestamp: string;
@@ -133,10 +134,37 @@ interface AnalyticsData {
   };
 }
 
+// Priority mapping types
+export type BackendPriority = 'high' | 'medium' | 'low';
+export type FrontendPriority = 'urgent' | 'important' | 'not important';
+
+// Priority mapping utilities
+export const priorityMapping = {
+  // Backend to Frontend mapping
+  toFrontend: (backendPriority: BackendPriority): FrontendPriority => {
+    const mapping: Record<BackendPriority, FrontendPriority> = {
+      'high': 'urgent',
+      'medium': 'important', 
+      'low': 'not important'
+    };
+    return mapping[backendPriority];
+  },
+  
+  // Frontend to Backend mapping
+  toBackend: (frontendPriority: FrontendPriority): BackendPriority => {
+    const mapping: Record<FrontendPriority, BackendPriority> = {
+      'urgent': 'high',
+      'important': 'medium',
+      'not important': 'low'
+    };
+    return mapping[frontendPriority];
+  }
+};
+
 // Feedback API Types
 export interface FeedbackRequest {
   message_id: number;
-  feedback_priority?: 'high' | 'medium' | 'low';
+  feedback_priority?: BackendPriority;
   feedback_context?: 'work' | 'personal' | 'general';
 }
 
@@ -364,16 +392,6 @@ class ApiService {
     return this.request<any>(`/api/v1/messages/analytics/summary?${params.toString()}`);
   }
 
-  async submitMessageFeedback(messageId: string, feedbackPriority: string, feedbackContext?: string): Promise<ApiResponse<any>> {
-    return this.request<any>(`/api/v1/messages/${messageId}/feedback`, {
-      method: 'POST',
-      body: JSON.stringify({ 
-        feedback_priority: feedbackPriority,
-        feedback_context: feedbackContext
-      }),
-    });
-  }
-
   // V1 API: Gmail Integration
   async getGmailStatus(): Promise<ApiResponse<any>> {
     return this.request<any>('/api/v1/gmail/status');
@@ -414,7 +432,7 @@ class ApiService {
   }
 
   async analyzeGmailMessage(messageId: string): Promise<ApiResponse<{
-    priority: 'high' | 'medium' | 'low';
+    priority: BackendPriority;
     confidence: number;
     category: string;
     summary: string;
@@ -444,7 +462,7 @@ class ApiService {
     });
   }
 
-  async updatePriority(id: string, priority: 'high' | 'medium' | 'low'): Promise<ApiResponse<void>> {
+  async updatePriority(id: string, priority: BackendPriority): Promise<ApiResponse<void>> {
     return this.request<void>(`/emails/${id}/priority`, {
       method: 'PATCH',
       body: JSON.stringify({ priority }),
@@ -497,16 +515,13 @@ class ApiService {
     sessionStorage.removeItem('user_name');
   }
 
-  // V1 API: Feedback and Prediction
-  async submitPredictionFeedback(messageId: string, correctedPriority: string, feedbackScore?: number, correctedContext?: string): Promise<ApiResponse<any>> {
-    return this.request(`/api/v1/messages/${messageId}/feedback`, {
-      method: 'POST',
-      body: JSON.stringify({ 
-        feedback_priority: correctedPriority, 
-        feedback_context: correctedContext,
-        ...(feedbackScore !== undefined && { score: feedbackScore })
-      }),
-    });
+  // V1 API: Feedback for message prediction improvement
+  async submitPredictionFeedback(messageId: string, correctedPriority?: BackendPriority, correctedContext?: 'work' | 'personal' | 'general'): Promise<ApiResponse<any>> {
+    const params = new URLSearchParams();
+    if (correctedPriority) params.append('feedback_priority', correctedPriority);
+    if (correctedContext) params.append('feedback_context', correctedContext);
+    const url = `/api/v1/messages/${messageId}/feedback${params.toString() ? '?' + params.toString() : ''}`;
+    return this.request(url, { method: 'POST' });
   }
 
   async predictMessagePriority(messageData: any, options: any = {}): Promise<ApiResponse<any>> {
@@ -566,6 +581,71 @@ class ApiService {
 
   async getGmailMessagesLive(limit: number): Promise<ApiResponse<any>> {
     return this.request(`/gmail/messages/live?limit=${limit}`);
+  }
+
+  // =============================================================================
+  // PRIORITY MAPPING UTILITIES
+  // =============================================================================
+
+  /**
+   * Convert backend priority to frontend display priority
+   * @param backendPriority - Backend priority ('high' | 'medium' | 'low')
+   * @returns Frontend priority ('urgent' | 'important' | 'not important')
+   */
+  mapPriorityToFrontend(backendPriority: BackendPriority): FrontendPriority {
+    return priorityMapping.toFrontend(backendPriority);
+  }
+
+  /**
+   * Convert frontend display priority to backend priority
+   * @param frontendPriority - Frontend priority ('urgent' | 'important' | 'not important')
+   * @returns Backend priority ('high' | 'medium' | 'low')
+   */
+  mapPriorityToBackend(frontendPriority: FrontendPriority): BackendPriority {
+    return priorityMapping.toBackend(frontendPriority);
+  }
+
+  /**
+   * Transform email message to include display priority
+   * @param message - Email message from backend
+   * @returns Email message with displayPriority field added
+   */
+  enrichMessageWithDisplayPriority(message: EmailMessage): EmailMessage & { displayPriority: FrontendPriority } {
+    return {
+      ...message,
+      displayPriority: this.mapPriorityToFrontend(message.priority)
+    };
+  }
+
+  // =============================================================================
+  // FEEDBACK METHODS
+  // =============================================================================
+
+  // Submit feedback for message (v1 API - Recommended)
+  async submitMessageFeedback(
+    messageId: number, 
+    feedbackPriority?: BackendPriority,
+    feedbackContext?: 'work' | 'personal' | 'general'
+  ): Promise<ApiResponse<FeedbackResponse>> {
+    const params = new URLSearchParams();
+    if (feedbackPriority) params.append('feedback_priority', feedbackPriority);
+    if (feedbackContext) params.append('feedback_context', feedbackContext);
+    
+    const url = `/api/v1/messages/${messageId}/feedback${params.toString() ? '?' + params.toString() : ''}`;
+    return this.request<FeedbackResponse>(url, { method: 'POST' });
+  }
+
+  // Get feedback summary (v1 API)
+  async getFeedbackSummary(days = 30): Promise<ApiResponse<FeedbackSummary>> {
+    return this.request<FeedbackSummary>(`/api/v1/prediction/feedback/summary?days=${days}`);
+  }
+
+  // Submit feedback (Legacy route)
+  async submitFeedbackLegacy(feedbackData: FeedbackRequest): Promise<ApiResponse<void>> {
+    return this.request<void>('/feedback/', {
+      method: 'POST',
+      body: JSON.stringify(feedbackData),
+    });
   }
 }
 

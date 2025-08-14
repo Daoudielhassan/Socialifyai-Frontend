@@ -295,6 +295,9 @@
             <button class="btn-secondary" onclick="runAnalyticsTests()">
                 📊 Analytics Tests
             </button>
+            <button class="btn-secondary" onclick="runFeedbackTests()">
+                📝 Feedback Tests
+            </button>
             <button class="btn-warning" onclick="runDebugTests()">
                 🧪 Debug Tests
             </button>
@@ -672,6 +675,50 @@
             showResults(results);
             showLoading(false);
             log('📊 Analytics tests completed!', 'success');
+        }
+        
+        async function runFeedbackTests() {
+            if (isTestRunning) return;
+            
+            showLoading(true);
+            clearOutput();
+            
+            log('📝 Testing feedback endpoints...', 'info');
+            
+            const results = [];
+            
+            // V1 API Feedback Tests (Recommended)
+            results.push(await mockApiTest('/api/v1/messages/{id}/feedback', '/api/v1/messages/123/feedback?feedback_priority=high&feedback_context=work', 'POST', {
+                message_id: 123,
+                feedback_priority: 'high',
+                feedback_context: 'work'
+            }));
+            
+            results.push(await mockApiTest('/api/v1/messages/{id}/feedback (priority only)', '/api/v1/messages/124/feedback?feedback_priority=medium', 'POST', {
+                message_id: 124,
+                feedback_priority: 'medium'
+            }));
+            
+            results.push(await mockApiTest('/api/v1/messages/{id}/feedback (context only)', '/api/v1/messages/125/feedback?feedback_context=personal', 'POST', {
+                message_id: 125,
+                feedback_context: 'personal'
+            }));
+            
+            // Feedback Summary Tests
+            results.push(await mockApiTest('/api/v1/prediction/feedback/summary', '/api/v1/prediction/feedback/summary?days=30', 'GET'));
+            results.push(await mockApiTest('/api/v1/prediction/feedback/summary (90 days)', '/api/v1/prediction/feedback/summary?days=90', 'GET'));
+            
+            // Legacy Feedback Test
+            results.push(await mockApiTest('/feedback/ (legacy)', '/feedback/', 'POST', {
+                message_id: 126,
+                feedback_priority: 'low',
+                feedback_context: 'general'
+            }));
+            
+            showResults(results);
+            showLoading(false);
+            log('📝 Feedback tests completed!', 'success');
+            log('💡 Feedback APIs help improve AI predictions and user experience', 'info');
         }
         
         async function runDebugTests() {

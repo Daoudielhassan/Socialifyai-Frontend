@@ -411,6 +411,65 @@ class ApiEndpointTester {
   }
 
   // =============================================================================
+  // FEEDBACK ENDPOINTS TESTS
+  // =============================================================================
+
+  async testFeedbackEndpoints(): Promise<void> {
+    console.log('\n📝 TESTING FEEDBACK ENDPOINTS');
+    console.log('==============================');
+
+    // Test v1 API feedback submission (recommended)
+    await this.runTest('/api/v1/messages/{id}/feedback', 'POST', async () => {
+      return await apiService.submitMessageFeedback(
+        123, // Test message ID
+        'high', // Corrected priority
+        'work'  // Corrected context
+      );
+    });
+
+    // Test v1 API feedback submission (priority only)
+    await this.runTest('/api/v1/messages/{id}/feedback (priority only)', 'POST', async () => {
+      return await apiService.submitMessageFeedback(
+        124, // Test message ID
+        'medium' // Corrected priority only
+      );
+    });
+
+    // Test v1 API feedback submission (context only)
+    await this.runTest('/api/v1/messages/{id}/feedback (context only)', 'POST', async () => {
+      return await apiService.submitMessageFeedback(
+        125, // Test message ID
+        undefined, // No priority correction
+        'personal' // Corrected context only
+      );
+    });
+
+    // Test feedback summary retrieval
+    await this.runTest('/api/v1/prediction/feedback/summary', 'GET', async () => {
+      return await apiService.getFeedbackSummary(30); // Last 30 days
+    });
+
+    // Test feedback summary with different time period
+    await this.runTest('/api/v1/prediction/feedback/summary (90 days)', 'GET', async () => {
+      return await apiService.getFeedbackSummary(90); // Last 90 days
+    });
+
+    // Test legacy feedback route
+    await this.runTest('/feedback/', 'POST', async () => {
+      return await apiService.submitFeedbackLegacy({
+        message_id: 126,
+        feedback_priority: 'low',
+        feedback_context: 'general'
+      });
+    });
+
+    console.log('\n📋 Feedback API Usage Examples:');
+    console.log('1. Submit feedback: submitMessageFeedback(messageId, priority?, context?)');
+    console.log('2. Get feedback summary: getFeedbackSummary(days?)');
+    console.log('3. Legacy feedback: submitFeedbackLegacy(feedbackData)');
+  }
+
+  // =============================================================================
   // TESTING ENDPOINTS
   // =============================================================================
 
@@ -544,6 +603,7 @@ class ApiEndpointTester {
       await this.testMessageProcessingEndpoints();
       await this.testAnalyticsEndpoints();
       await this.testAIPredictionEndpoints();
+      await this.testFeedbackEndpoints();
       await this.testTestingEndpoints();
       await this.testDeprecatedEndpoints();
 
