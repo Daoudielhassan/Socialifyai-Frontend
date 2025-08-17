@@ -88,9 +88,19 @@ export default function OAuth2Login() {
         {/* Authentication Form */}
         <div className="bg-white rounded-2xl shadow-xl p-8">
           {error && (
-            <div className="mb-6 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm flex items-center">
-              <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
-              {error}
+            <div className="mb-6 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm">
+              <div className="flex items-center">
+                <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
+                <div>
+                  <p className="font-medium">Authentication Error</p>
+                  <p className="mt-1">{error}</p>
+                  {error.includes('cookie') && (
+                    <p className="mt-2 text-xs text-red-500">
+                      <strong>Backend Issue:</strong> The server needs to configure httpOnly cookies for authentication.
+                    </p>
+                  )}
+                </div>
+              </div>
             </div>
           )}
 

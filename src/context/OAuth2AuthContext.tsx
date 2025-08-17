@@ -57,142 +57,167 @@ export function OAuth2AuthProvider({ children }: OAuth2AuthProviderProps) {
 
   // Check for existing authentication on app start
   useEffect(() => {
-    checkUrlParamsAuth();
-  }, []);
-
-  const checkUrlParamsAuth = async () => {
-    try {
-      // Check for OAuth callback parameters in URL
-      const urlParams = new URLSearchParams(window.location.search);
-      const token = urlParams.get('token');
-      const userId = urlParams.get('user_id');
-      const email = urlParams.get('email');
-      const name = urlParams.get('name') || urlParams.get('full_name');
-
-      console.log('🔐 Checking URL parameters for OAuth data...');
-      console.log('🔐 URL:', window.location.href);
-      console.log('🔐 URL Search:', window.location.search);
-      console.log('🔐 Token in URL:', token ? 'present (not used with httpOnly cookies)' : 'null');
-      console.log('🔐 User ID:', userId);
-      console.log('🔐 Email:', email);
-      console.log('🔐 Name:', name);
-
-      // With httpOnly cookies, we don't use tokens from URL parameters
-      // The server should have already set the httpOnly cookies
-      // We only use the URL parameters for initial user data if available
-      
-      if (userId && email) {
-        console.log('🔐 Found user data in URL parameters');
-        
-        // Don't store tokens - they should be httpOnly cookies
-        // ApiService.setToken() is deprecated for httpOnly cookie setup
-        
-        // Create user object from URL parameters
-        const user = {
-          id: parseInt(userId || '0'),
-          email: email || '',
-          full_name: name || email || 'User',
-          auth_method: 'oauth',
-          created_at: new Date().toISOString(),
-          last_login: new Date().toISOString(),
-          settings: {
-            privacy_level: 'high',
-            ai_suggestions: true,
-            notification_frequency: 'daily',
-            timezone: 'UTC'
-          },
-          connected_services: {
-            gmail: {
-              connected: true,
-              permissions: ['read'],
-              last_sync: new Date().toISOString()
-            }
-          }
-        };
-
-        console.log('🔐 Created user object from URL params:', user);
-
-        // Store user data in session for UI purposes only (not security)
-        if (typeof window !== 'undefined') {
-          sessionStorage.setItem('user_email', user.email);
-          sessionStorage.setItem('user_name', user.full_name);
-        }
-
-        setUser(user);
-        setIsAuthenticated(true);
-        
-        console.log('✅ OAuth2 authentication successful from URL (httpOnly cookies):', user.email);
-        
-        // Clean up the URL
-        const cleanUrl = window.location.pathname;
-        console.log('🔐 Cleaning URL, redirecting to:', cleanUrl);
-        window.history.replaceState({}, document.title, cleanUrl);
-        
-        setIsLoading(false);
-        return;
-      } else {
-        console.log('🔐 No user data in URL, trying authentication validation...');
-      }
-
-      // Fallback: validate existing authentication via API call
-      await validateToken();
-    } catch (error: any) {
-      console.error('❌ URL params auth failed, trying token validation:', error);
-      await validateToken();
-    }
-  };
-
-  const validateToken = async () => {
-    try {
-      // With httpOnly cookies, we don't check localStorage for tokens
-      // Instead, we make an API call to see if we're authenticated
-      console.log('🔐 Validating authentication via API call (httpOnly cookies)...');
-      
+    const checkUrlParamsAuth = async () => {
       try {
-        const response = await ApiService.getProfile();
-        if (response.data) {
-          // Map ProfileUser to OAuth2 User format
-          const profileUser = response.data;
-          const mappedUser: User = {
-            id: profileUser.id,
-            email: profileUser.email,
-            full_name: profileUser.full_name,
-            auth_method: profileUser.auth_method,
-            created_at: profileUser.created_at,
-            last_login: profileUser.last_login,
-            settings: {
-              privacy_level: 'high',
-              ai_suggestions: true,
-              notification_frequency: 'daily',
-              timezone: 'UTC'
-            },
-            connected_services: {
-              gmail: {
-                connected: profileUser.gmail_connected,
-                permissions: ['read'],
-                last_sync: new Date().toISOString()
+        // Check for OAuth callback parameters in URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+        const userId = urlParams.get('user_id');
+        const email = urlParams.get('email');
+        const name = urlParams.get('name') || urlParams.get('full_name');
+        const authSuccess = urlParams.get('auth_success');
+
+        console.log('🔐 Checking URL parameters for OAuth data...');
+        console.log('🔐 URL:', window.location.href);
+        console.log('🔐 URL Search:', window.location.search);
+        console.log('🔐 Token in URL:', token ? 'present (not used with httpOnly cookies)' : 'null');
+        console.log('🔐 User ID:', userId);
+        console.log('🔐 Email:', email);
+        console.log('🔐 Name:', name);
+        console.log('🔐 Auth Success:', authSuccess);
+
+        // With httpOnly cookies, we don't use tokens from URL parameters
+        // The server should have already set the httpOnly cookies
+        // We only use the URL parameters for initial user data if available
+        if ((userId && email) || authSuccess === 'true') {
+          console.log('🔐 Found OAuth success data in URL parameters');
+          
+          // If we have user data, use it; otherwise, fetch from API
+          if (userId && email) {
+            // Create user object from URL parameters
+            const user = {
+              id: parseInt(userId || '0'),
+              email: email || '',
+              full_name: name || email || 'User',
+              auth_method: 'oauth',
+              created_at: new Date().toISOString(),
+              last_login: new Date().toISOString(),
+              settings: {
+                privacy_level: 'high',
+                ai_suggestions: true,
+                notification_frequency: 'daily',
+                timezone: 'UTC'
+              },
+              connected_services: {
+                gmail: {
+                  connected: true,
+                  permissions: ['read'],
+                  last_sync: new Date().toISOString()
+                }
               }
+            };
+            console.log('🔐 Created user object from URL params:', user);
+            
+            // Store user data in session for UI purposes only (not security)
+            if (typeof window !== 'undefined') {
+              sessionStorage.setItem('user_email', user.email);
+              sessionStorage.setItem('user_name', user.full_name);
             }
-          };
-          setUser(mappedUser);
-          setIsAuthenticated(true);
-          console.log('✅ Authentication validation successful (httpOnly cookies):', mappedUser.email);
+            setUser(user);
+            setIsAuthenticated(true);
+            console.log('✅ OAuth2 authentication successful from URL (httpOnly cookies):', user.email);
+            
+            // Clean up the URL
+            const cleanUrl = window.location.pathname;
+            console.log('🔐 Cleaning URL, redirecting to:', cleanUrl);
+            window.history.replaceState({}, document.title, cleanUrl);
+            setIsLoading(false);
+            return;
+          } else {
+            // No user data in URL but auth_success=true, validate via API
+            console.log('🔐 Auth success indicated but no user data, validating via API...');
+            await validateToken();
+            
+            // Clean up the URL after validation
+            const cleanUrl = window.location.pathname;
+            window.history.replaceState({}, document.title, cleanUrl);
+            return;
+          }
+        } else {
+          console.log('🔐 No user data in URL, trying authentication validation...');
         }
-      } catch (profileError: any) {
-        console.warn('⚠️ User profile fetch failed - not authenticated:', profileError.message);
-        // With httpOnly cookies, if the API call fails, we're not authenticated
-        // No fallback to localStorage since tokens are not accessible
+        // Fallback: validate existing authentication via API call
+        await validateToken();
+      } catch (error: any) {
+        console.error('❌ URL params auth failed, trying token validation:', error);
+        setError('Échec de l’authentification. Veuillez réessayer ou contacter le support.');
         setUser(null);
         setIsAuthenticated(false);
+        setIsLoading(false);
       }
-    } catch (error: any) {
-      console.error('❌ Authentication validation failed:', error);
-      setUser(null);
-      setIsAuthenticated(false);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    };
+
+    const validateToken = async () => {
+      try {
+        // With httpOnly cookies, we don't check localStorage for tokens
+        // Instead, we make an API call to see if we're authenticated
+        console.log('🔐 Validating authentication via API call (httpOnly cookies)...');
+        
+        try {
+          const response = await ApiService.getProfile();
+          if (response.data) {
+            // Map ProfileUser to OAuth2 User format
+            const profileUser = response.data;
+            const mappedUser: User = {
+              id: profileUser.id,
+              email: profileUser.email,
+              full_name: profileUser.full_name,
+              auth_method: profileUser.auth_method,
+              created_at: profileUser.created_at,
+              last_login: profileUser.last_login,
+              settings: {
+                privacy_level: 'high',
+                ai_suggestions: true,
+                notification_frequency: 'daily',
+                timezone: 'UTC'
+              },
+              connected_services: {
+                gmail: {
+                  connected: profileUser.gmail_connected,
+                  permissions: ['read'],
+                  last_sync: new Date().toISOString()
+                }
+              }
+            };
+            setUser(mappedUser);
+            setIsAuthenticated(true);
+            console.log('✅ Authentication validation successful (httpOnly cookies):', mappedUser.email);
+          }
+        } catch (profileError: any) {
+          console.warn('⚠️ User profile fetch failed - not authenticated:', profileError.message);
+          console.warn('⚠️ This indicates missing or invalid authentication cookie');
+          
+          // Debug authentication state
+          ApiService.debugAuthState();
+          
+          // Check if this is a real auth failure or just initial load
+          const currentPath = window.location.pathname;
+          const isAuthCallback = window.location.search.includes('auth_success=true') || 
+                                window.location.search.includes('user_id=') ||
+                                currentPath.includes('callback');
+          
+          if (isAuthCallback) {
+            console.error('❌ Authentication failed after OAuth callback - this indicates a backend cookie issue');
+            setError('Authentication failed. The backend did not set the authentication cookie properly.');
+          } else {
+            console.log('ℹ️ No authentication found - user needs to log in');
+          }
+          
+          // With httpOnly cookies, if the API call fails, we're not authenticated
+          setUser(null);
+          setIsAuthenticated(false);
+        }
+      } catch (error: any) {
+        console.error('❌ Authentication validation failed:', error);
+        setUser(null);
+        setIsAuthenticated(false);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkUrlParamsAuth();
+  }, []);
 
   const initiateGoogleAuth = async () => {
     try {
@@ -418,6 +443,7 @@ export function OAuth2AuthProvider({ children }: OAuth2AuthProviderProps) {
     clearError
   };
 
+
   return (
     <OAuth2AuthContext.Provider value={value}>
       {children}
@@ -425,48 +451,3 @@ export function OAuth2AuthProvider({ children }: OAuth2AuthProviderProps) {
   );
 }
 
-// Error boundary for OAuth2 authentication
-export class OAuth2ErrorBoundary extends React.Component<
-  { children: ReactNode; fallback?: ReactNode },
-  { hasError: boolean; error: Error | null }
-> {
-  constructor(props: { children: ReactNode; fallback?: ReactNode }) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
-
-  static getDerivedStateFromError(error: Error) {
-    return { hasError: true, error };
-  }
-
-  componentDidCatch(error: Error, errorInfo: any) {
-    console.error('OAuth2 Error Boundary caught an error:', error, errorInfo);
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return this.props.fallback || (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50">
-          <div className="text-center">
-            <h1 className="text-2xl font-bold text-gray-900 mb-4">
-              Authentication Error
-            </h1>
-            <p className="text-gray-600 mb-4">
-              Something went wrong with authentication. Please try again.
-            </p>
-            <button
-              onClick={() => window.location.href = '/oauth2-login'}
-              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-            >
-              Go to Login
-            </button>
-          </div>
-        </div>
-      );
-    }
-
-    return this.props.children;
-  }
-}
-
-export default OAuth2AuthContext;

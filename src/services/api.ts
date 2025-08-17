@@ -269,17 +269,21 @@ class ApiService {
       const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
       const data = await response.json();
 
+      // Debug: Log cookies for authentication debugging
+      if (endpoint.includes('/user/profile') || endpoint.includes('/auth/')) {
+        console.log('🍪 Debug - Request cookies:', document.cookie);
+        console.log('🔍 Debug - Response status:', response.status);
+        console.log('🔍 Debug - Response headers:', Object.fromEntries(response.headers.entries()));
+      }
+
       if (!response.ok) {
         // For cookie-based authentication, don't try to refresh tokens
         // If we get a 401, it means the user needs to re-authenticate
         if (response.status === 401) {
-          console.log('❌ Authentication failed - redirecting to login');
+          console.log('❌ Authentication failed - 401 received');
+          console.log('🍪 Available cookies:', document.cookie || 'No cookies found');
           this.clearAuthData();
-          if (typeof window !== 'undefined') {
-            window.location.href = '/oauth2-login';
-          }
         }
-        
         throw new Error(data.message || data.error || `HTTP ${response.status}`);
       }
 
@@ -317,6 +321,7 @@ class ApiService {
   async refreshToken(): Promise<ApiResponse<{ access_token: string; refresh_token: string }>> {
     console.warn('⚠️ refreshToken is deprecated - using cookie-based authentication');
     const refreshToken = localStorage.getItem('refresh_token');
+
     return this.request<{ access_token: string; refresh_token: string }>('/auth/refresh', {
       method: 'POST',
       body: JSON.stringify({ refresh_token: refreshToken }),
@@ -498,11 +503,14 @@ class ApiService {
     try {
       await this.request('/auth/logout', {
         method: 'POST',
+        credentials: 'include', // Include cookies for logout
       });
+      console.log('✅ Server logout successful');
     } catch (error) {
-      console.warn('Server logout failed:', error);
+      console.warn('⚠️ Server logout failed:', error);
     } finally {
       this.stopTokenManagement();
+      this.clearAuthData();
     }
   }
 
@@ -513,6 +521,9 @@ class ApiService {
     sessionStorage.removeItem('access_token');
     sessionStorage.removeItem('user_email');
     sessionStorage.removeItem('user_name');
+    console.log('🧹 Auth data cleared from local storage');
+    // Note: httpOnly cookies cannot be cleared from client-side
+    // The server handles clearing them via the /auth/logout endpoint
   }
 
   // V1 API: Feedback for message prediction improvement
@@ -551,6 +562,12 @@ class ApiService {
 
   // Additional methods used by GmailTest
   debugAuthState(): any {
+    console.log('🔍 Authentication Debug Info:');
+    console.log('- API Base URL:', API_BASE_URL);
+    console.log('- Available cookies:', document.cookie || 'No cookies found');
+    console.log('- Current domain:', window.location.hostname);
+    console.log('- Current protocol:', window.location.protocol);
+    
     const token = this.getAuthToken();
     let isExpired = false;
     
@@ -559,6 +576,8 @@ class ApiService {
         const payload = JSON.parse(atob(token.split('.')[1]));
         const now = Math.floor(Date.now() / 1000);
         isExpired = payload.exp && payload.exp < now;
+        console.log('- Token found:', token ? 'Present' : 'Not found');
+        console.log('- Token expired:', isExpired);
       } catch (error) {
         console.error('Error parsing token:', error);
         isExpired = true;

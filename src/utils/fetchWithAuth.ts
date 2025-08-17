@@ -19,6 +19,7 @@ export const fetchWithAuth = async <T = unknown>(
   
   const config: RequestInit = {
     ...options,
+    credentials: 'include', // Include cookies for httpOnly authentication
     headers: {
       'Content-Type': 'application/json',
       ...(token && { Authorization: `Bearer ${token}` }),

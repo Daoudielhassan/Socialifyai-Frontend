@@ -24,6 +24,9 @@ const NotFound = React.lazy(() => import('./pages/NotFound'));
 const GmailPage = React.lazy(() => import('./pages/GmailPage'));
 const AnalyticsPage = React.lazy(() => import('./pages/AnalyticsPage'));
 
+// Debug component
+const RealTimeDebug = React.lazy(() => import('./components/RealTimeDebug'));
+
 // Loading component
 const LoadingSpinner = () => <LoadingSkeleton type="card" />;
 
@@ -111,6 +114,16 @@ function App() {
                   element={
                     <Suspense fallback={<LoadingSpinner />}>
                       <PrivacyPolicy />
+                    </Suspense>
+                  }
+                />
+                
+                {/* Debug Route - Temporary */}
+                <Route
+                  path="/debug-auth"
+                  element={
+                    <Suspense fallback={<LoadingSpinner />}>
+                      <RealTimeDebug />
                     </Suspense>
                   }
                 />
